@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تعديل أسعار المبيعات - الإدارة</title>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            padding: 10px;
+            background: #f5f5f5;
+        }
+        .search-box {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            display: block;
+            padding: 20px;
+            font-size: 20px;
+            border: 1px solid #007bff;
+            border-radius: 15px;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .table-container {
+            overflow-x: auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 500px;
+        }
+        th {
+            background: #007bff;
+            color: white;
+            padding: 18px 15px;
+            text-align: right;
+            font-weight: bold;
+        }
+        td {
+            padding: 16px 15px;
+            border-bottom: 1px solid #eee;
+            text-align: right;
+        }
+        td input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 18px;
+            background: #fafafa;
+        }
+        td input:focus {
+            border-color: #007bff;
+            background: white;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+        }
+        tr.new-row {
+            background: #d4edda !important;
+        }
+        tr:hover {
+            background: #f8f9ff;
+        }
+        #status {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 16px;
+        }
+        #status.saved {
+            background: #d4edda;
+            color: #155724;
+        }
+        #status.locked {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div id="passwordForm">
+        <h3>ادخال إلى لوحة الإدارة (كلمة مرور)</h3>
+        <input type="password" id="passInput" placeholder="أدخل كلمة المرور..." />
+        <button onclick="checkPassword()">دخول</button>
+    </div>
+
+    <div id="editArea" style="display: none;">
+        <input type="text" id="searchInput" class="search-box" placeholder="ابحث عن الصنف..." />
+        <div id="status" class="status locked">🔒 غير مسموح التعديل</div>
+        <div class="table-container">
+            <table id="itemsTable">
+                <thead>
+                    <tr>
+                        <th>اسم الصنف</th>
+                        <th>سعر المبيع</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        //📍 نفس firebaseConfig
+        const firebaseConfig = {
+            apiKey: "AIzaSyDdJ3nHJJb6DO4hltDcXZry4HqxXatJSts",
+            authDomain: "dabbous-basta-prices.firebaseapp.com",
+            databaseURL: "https://dabbous-basta-prices-default-rtdb.firebaseio.com/",
+            projectId: "dabbous-basta-prices",
+            storageBucket: "dabbous-basta-prices.firebasestorage.app",
+            messagingSenderId: "312706128887",
+            appId: "1:312706128887:web:01f59204cfda9b9d50acf2",
+            measurementId: "G-89JZMC41DT"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const pricesRef = db.ref('prices');
+
+        let itemsData = [];
+        const PASSWORD = '01632382'; // ✅ كلمة المرور التي اخترتها
+
+        function checkPassword() {
+            const input = document.getElementById('passInput').value;
+            if (input === PASSWORD) {
+                document.getElementById('passwordForm').style.display = 'none';
+                document.getElementById('editArea').style.display = 'block';
+                db.ref('.info/connected').on('value', (snap) => {
+                    const el = document.getElementById('status');
+                    if (snap.val()) {
+                        el.textContent = '🟢 متصل بـ Firebase — التعديل فعال';
+                        el.className = 'status saved';
+                    } else {
+                        el.textContent = '🔴 غير متصل';
+                    }
+                });
+                pricesRef.on('value', (snapshot) => {
+                    const val = snapshot.val();
+                    itemsData = val ? Object.values(val) : [];
+                    renderTable(itemsData);
+                });
+            } else {
+                alert('❌ كلمة المرور خاطئة');
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            data.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+
+                const tdName = document.createElement('td');
+                const nameInput = document.createElement('input');
+                nameInput.value = item.name || '';
+                nameInput.disabled = true;
+                tdName.appendChild(nameInput);
+
+                const tdPrice = document.createElement('td');
+                const priceInput = document.createElement('input');
+                priceInput.value = item.price || '';
+                priceInput.type = 'number';
+                priceInput.step = '0.01';
+                priceInput.addEventListener('input', debounce(saveData, 300));
+                tdPrice.appendChild(priceInput);
+
+                tr.appendChild(tdName);
+                tr.appendChild(tdPrice);
+                tbody.appendChild(tr);
+            });
+
+            // صف جديد للإضافة
+            const newTr = document.createElement('tr');
+            newTr.className = 'new-row';
+
+            const newTdName = document.createElement('td');
+            const newNameInput = document.createElement('input');
+            newNameInput.placeholder = 'صنف جديد...';
+            newTdName.appendChild(newNameInput);
+
+            const newTdPrice = document.createElement('td');
+            const newPriceInput = document.createElement('input');
+            newPriceInput.type = 'number';
+            newPriceInput.step = '0.01';
+            newPriceInput.placeholder = 'سعر جديد';
+            newTdPrice.appendChild(newPriceInput);
+
+            newTdName.addEventListener('blur', () => {
+                const name = newNameInput.value.trim();
+                const price = newPriceInput.value.trim();
+                if (name && price && !itemsData.find(item => item.name === name)) {
+                    const key = 'new_' + Date.now();
+                    pricesRef.child(key).set({ name, price });
+                }
+            });
+
+            newTr.appendChild(newTdName);
+            newTr.appendChild(newTdPrice);
+            tbody.appendChild(newTr);
+        }
+
+        // debounce
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction() {
+                const context = this;
+                const args = arguments;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), wait);
+            };
+        }
+
+        // حفظ التعديل
+        function saveData() {
+            const rows = document.querySelectorAll('#tableBody tr:not(.new-row)');
+            const updates = {};
+
+            rows.forEach((row, idx) => {
+                const name = row.cells[0].querySelector('input').value.trim();
+                const price = row.cells[1].querySelector('input').value.trim();
+                const key = Object.keys(itemsData)[idx];
+                if (key && name) {
+                    updates[key] = { name, price };
+                }
+            });
+
+            if (Object.keys(updates).length > 0) {
+                pricesRef.update(updates);
+                document.getElementById('status').textContent = '💾 تم حفظ التعديل';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أسعار المبيعات - دبوس البسطة</title>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            padding: 10px;
+            background: #f5f5f5;
+        }
+        .search-box {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            display: block;
+            padding: 20px;
+            font-size: 20px;
+            border: 1px solid #007bff;
+            border-radius: 15px;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .table-container {
+            overflow-x: auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 500px;
+        }
+        th {
+            background: #007bff;
+            color: white;
+            padding: 18px 15px;
+            text-align: right;
+            font-weight: bold;
+        }
+        td {
+            padding: 16px 15px;
+            border-bottom: 1px solid #eee;
+            text-align: right;
+        }
+        td input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 18px;
+            background: #fafafa;
+            border: none;
+            text-align: center;
+        }
+        tr:hover {
+            background: #f8f9ff;
+        }
+        #status {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 16px;
+        }
+        #status.ready {
+            background: #d4edda;
+            color: #155724;
+        }
+        @media (max-width: 768px) {
+            .search-box, td input {
+                font-size: 22px;
+                padding: 20px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <input type="text" id="searchInput" class="search-box" placeholder="ابحث عن الصنف..." />
+    
+    <div id="status">🔄 جاري تحميل الأسعار...</div>
+    
+    <div class="table-container">
+        <table id="itemsTable">
+            <thead>
+                <tr>
+                    <th>اسم الصنف</th>
+                    <th>سعر المبيع</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        //📍 حطّ هنا.firebaseConfig الصحيح من Firebase Console
+        const firebaseConfig = {
+            apiKey: "AIzaSyDdJ3nHJJb6DO4hltDcXZry4HqxXatJSts",
+            authDomain: "dabbous-basta-prices.firebaseapp.com",
+            databaseURL: "https://dabbous-basta-prices-default-rtdb.firebaseio.com/",
+            projectId: "dabbous-basta-prices",
+            storageBucket: "dabbous-basta-prices.firebasestorage.app",
+            messagingSenderId: "312706128887",
+            appId: "1:312706128887:web:01f59204cfda9b9d50acf2",
+            measurementId: "G-89JZMC41DT"
+        };
+
+        // تهيئةFirebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const pricesRef = db.ref('prices'); // مسار الأسعار في Firebase
+
+        let itemsData = [];
+
+        // حالة الاتصال
+        db.ref('.info/connected').on('value', (snap) => {
+            const el = document.getElementById('status');
+            if (snap.val()) {
+                el.textContent = '🟢 متصل بـ Firebase — الأسعار محدثة';
+                el.className = 'status ready';
+            } else {
+                el.textContent = '🔴 غير متصل';
+            }
+        });
+
+        // الاستماع للاسعار فوراً
+        pricesRef.on('value', (snapshot) => {
+            const val = snapshot.val();
+            itemsData = val ? Object.values(val) : [];
+
+            renderTable(itemsData);
+        });
+
+        // عرض الجدول (قراءة فقط)
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            data.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+
+                const tdName = document.createElement('td');
+                const nameInput = document.createElement('input');
+                nameInput.value = item.name || '';
+                nameInput.disabled = true;
+                tdName.appendChild(nameInput);
+
+                const tdPrice = document.createElement('td');
+                const priceInput = document.createElement('input');
+                priceInput.value = item.price || '';
+                priceInput.disabled = true;
+                tdPrice.appendChild(priceInput);
+
+                tr.appendChild(tdName);
+                tr.appendChild(tdPrice);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // فلتر الأسماء (AND)
+        document.getElementById('searchInput').addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            const filtered = query
+                ? itemsData.filter(item =>
+                    query.split(' ').every(word =>
+                        item.name.toLowerCase().includes(word)
+                    )
+                )
+                : [...itemsData];
+
+            renderTable(filtered);
+        });
+    </script>
+</body>
+</html>
