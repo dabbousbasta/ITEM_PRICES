@@ -3,316 +3,223 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>أسعار المبيعات - دبوس البسطة</title>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <title>دبوس البسطة - الأصناف</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            padding: 10px;
-            background: #f5f5f5;
-            direction: rtl;
-        }
-        .search-box {
-            width: 100%;
-            max-width: 600px;
-            margin: 0 auto 20px;
-            display: block;
-            padding: 20px;
-            font-size: 20px;
-            border: 1px solid #007bff;
-            border-radius: 15px;
-            background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .table-container {
-            overflow-x: auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 500px;
-        }
-        th {
-            background: #007bff;
-            color: white;
-            padding: 18px 15px;
-            text-align: right;
-            font-weight: bold;
-        }
-        td {
-            padding: 16px 15px;
-            border-bottom: 1px solid #eee;
-            text-align: right;
-        }
-        td input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 18px;
-            background: #fafafa;
-        }
-        td input:focus {
-            border-color: #007bff;
-            background: white;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-        }
-        tr.new-row {
-            background: #d4edda !important;
-        }
-        tr:hover {
-            background: #f8f9ff;
-        }
-        #status {
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 5px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 16px;
-        }
-        #status.live {
-            background: #d4edda;
-            color: #155724;
-        }
-        #status.error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        @media (max-width: 768px) {
-            .search-box, td input {
-                font-size: 22px;
-                padding: 20px 15px;
-            }
-        }
+        body { font-family: 'Cairo', sans-serif; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body>
-    <input type="text" id="searchInput" class="search-box" placeholder="ابحث عن الصنف... مثال: قسط تركي 25 اخضر" />
-    
-    <div id="status">🔄 جاري الاتصال...</div>
-    
-    <div class="table-container">
-        <table id="itemsTable">
-            <thead>
-                <tr>
-                    <th>اسم الصنف</th>
-                    <th>سعر المبيع</th>
-                </tr>
-            </thead>
-            <tbody id="tableBody"></tbody>
-        </table>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                دبوس البسطة
+            </h1>
+            <p class="text-xl text-gray-700">إدارة الأصناف والمخزون</p>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="bg-white rounded-2xl shadow-xl p-6 mb-8 fade-in">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">البحث في الاسم</label>
+                    <input type="text" id="searchName" placeholder="اكتب اسم الصنف..." 
+                           class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">الفئة</label>
+                    <select id="filterCategory" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500">
+                        <option value="">الكل</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">السعر</label>
+                    <select id="filterPrice" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500">
+                        <option value="">الكل</option>
+                        <option value="low">أقل من 5000</option>
+                        <option value="high">أكثر من 10000</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button id="clearFilters" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200">
+                        مسح الفلاتر
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Results Count -->
+            <div id="resultsCount" class="text-center bg-blue-50 p-4 rounded-xl font-semibold text-lg text-blue-800 hidden">
+                تم العثور على <span id="countNum">0</span> صنف
+            </div>
+        </div>
+
+        <!-- Products Grid -->
+        <div id="productsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <!-- Products will be loaded here -->
+        </div>
+
+        <!-- No Results -->
+        <div id="noResults" class="hidden text-center py-20">
+            <div class="text-6xl mb-4">🔍</div>
+            <h3 class="text-2xl font-bold text-gray-700 mb-2">لا توجد نتائج</h3>
+            <p class="text-gray-500">جرب تعديل الفلاتر أو البحث بكلمات أخرى</p>
+        </div>
     </div>
 
     <script>
-        // 👇 حطّينا firebaseConfig الصحيح 👇
-        const firebaseConfig = {
-            apiKey: "AIzaSyDdJ3nHJJb6DO4hltDcXZry4HqxXatJSts",
-            authDomain: "dabbous-basta-prices.firebaseapp.com",
-            databaseURL: "https://dabbous-basta-prices-default-rtdb.firebaseio.com/",
-            projectId: "dabbous-basta-prices",
-            storageBucket: "dabbous-basta-prices.firebasestorage.app",
-            messagingSenderId: "312706128887",
-            appId: "1:312706128887:web:01f59204cfda9b9d50acf2",
-            measurementId: "G-89JZMC41DT"
-        };
+        // البيانات (مثال - استبدلها بـ JSON من ملفك)
+        const productsData = [
+            { id: 1, name: "سمك السلمون", category: "مأكولات بحرية", price: 25000, stock: 15, image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=300&h=300&fit=crop" },
+            { id: 2, name: "لحم البقر", category: "لحوم", price: 45000, stock: 8, image: "https://images.unsplash.com/photo-1581235720704-06d4204b4a2f?w=300&h=300&fit=crop" },
+            { id: 3, name: "خضار مختلط", category: "خضروات", price: 3500, stock: 25, image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&h=300&fit=crop" },
+            { id: 4, name: "فواكه موسمية", category: "فواكه", price: 8000, stock: 12, image: "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=300&h=300&fit=crop" },
+            { id: 5, name: "جبنة شيدر", category: "ألبان", price: 12000, stock: 20, image: "https://images.unsplash.com/photo-1542994983-8dc6e09de166?w=300&h=300&fit=crop" },
+            { id: 6, name: "بيض عش", category: "ألبان", price: 2500, stock: 30, image: "https://images.unsplash.com/photo-1546961321-90abeb5de73a?w=300&h=300&fit=crop" }
+        ];
 
-        // تهيئة Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        const itemsRef = db.ref('prices');
+        let allProducts = [...productsData];
+        let filteredProducts = [...productsData];
 
-        let itemsData = [];
-        let isSaving = false;
-
-        // حالة الاتصال
-        db.ref('.info/connected').on('value', (snapConnected) => {
-            const statusEl = document.getElementById('status');
-            if (snapConnected.val()) {
-                statusEl.innerHTML = '🟢 متصل بـ Firebase — التعديلات فورية على كل الأجهزة';
-                statusEl.className = 'status live';
-            } else {
-                statusEl.innerHTML = '🔴 غير متصل بـ Firebase — أعد تحميل الصفحة';
-                statusEl.className = 'status error';
-            }
+        // تهيئة الصفحة
+        document.addEventListener('DOMContentLoaded', function() {
+            initCategories();
+            renderProducts(filteredProducts);
+            setupEventListeners();
         });
 
-        // تحميل الأصناف من ITEMS.xlsx لمرة واحدة (أو تُستخدم القيم الموجودة)
-        async function initItems() {
-            try {
-                const response = await fetch('https://raw.githubusercontent.com/dabbousbasta/ITEM_PRICES/main/ITEMS.xlsx');
-                const arrayBuffer = await response.arrayBuffer();
-                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, blankrows: false });
+        // إنشاء خيارات الفئات
+        function initCategories() {
+            const categories = [...new Set(productsData.map(p => p.category))];
+            const select = document.getElementById('filterCategory');
+            
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                select.appendChild(option);
+            });
+        }
 
-                const initialItems = {};
-                for (let i = 1; i < jsonData.length; i++) {
-                    const row = jsonData[i];
-                    const name = (row[4] || '').toString().trim(); // العمود E
-                    if (name) {
-                        const key = 'item_' + Date.now() + '_' + i;
-                        initialItems[key] = {
-                            name: name,
-                            price: ''
-                        };
-                    }
+        // إعداد مستمعي الأحداث
+        function setupEventListeners() {
+            // البحث حسب الاسم
+            document.getElementById('searchName').addEventListener('input', debounce(filterProducts, 300));
+            
+            // الفلاتر
+            document.getElementById('filterCategory').addEventListener('change', filterProducts);
+            document.getElementById('filterPrice').addEventListener('change', filterProducts);
+            
+            // مسح الفلاتر
+            document.getElementById('clearFilters').addEventListener('click', clearFilters);
+        }
+
+        // فلترة المنتجات (الدالة الأساسية والأهم)
+        function filterProducts() {
+            const searchTerm = document.getElementById('searchName').value.toLowerCase().trim();
+            const category = document.getElementById('filterCategory').value;
+            const priceFilter = document.getElementById('filterPrice').value;
+
+            filteredProducts = allProducts.filter(product => {
+                // فلترة الاسم
+                const nameMatch = !searchTerm || 
+                    product.name.toLowerCase().includes(searchTerm);
+                
+                // فلترة الفئة
+                const categoryMatch = !category || product.category === category;
+                
+                // فلترة السعر
+                let priceMatch = true;
+                if (priceFilter === 'low') {
+                    priceMatch = product.price < 5000;
+                } else if (priceFilter === 'high') {
+                    priceMatch = product.price > 10000;
                 }
+                
+                return nameMatch && categoryMatch && priceMatch;
+            });
 
-                // save once (if not exists yet)
-                itemsRef.set(initialItems);
+            renderProducts(filteredProducts);
+        }
 
-            } catch (error) {
-                console.log('الملاحظة: الأصناف قد تكون مخزّنة مسبقاً، سيتم تحميلها مباشرة من Firebase');
+        // رسم المنتجات
+        function renderProducts(products) {
+            const container = document.getElementById('productsContainer');
+            const noResults = document.getElementById('noResults');
+            const resultsCount = document.getElementById('resultsCount');
+            const countNum = document.getElementById('countNum');
+
+            // مسح المحتوى السابق
+            container.innerHTML = '';
+
+            if (products.length === 0) {
+                noResults.classList.remove('hidden');
+                resultsCount.classList.add('hidden');
+                return;
             }
-        }
 
-        // استماع تغييرات البيانات (LIVE)
-        itemsRef.on('value', (snapshot) => {
-            const val = snapshot.val();
-            itemsData = val ? Object.values(val) : [];
+            noResults.classList.add('hidden');
+            countNum.textContent = products.length;
+            resultsCount.classList.remove('hidden');
 
-            // 👇 هنا خطأ السطر اللي ركّز عليه Console
-            renderTable(itemsData);
-        });
-
-        // 👇 renderTable بدون أي استخدام لـ snapshot ❌
-        function renderTable(data) {
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = '';
-
-            data.forEach((item, idx) => {
-                const tr = document.createElement('tr');
-                const tdName = document.createElement('td');
-                const tdPrice = document.createElement('td');
-
-                const inputName = document.createElement('input');
-                const inputPrice = document.createElement('input');
-
-                inputName.type = 'text';
-                inputName.value = item.name || '';
-                inputPrice.type = 'number';
-                inputPrice.value = item.price || '';
-                inputPrice.step = '0.01';
-                inputPrice.min = '0.001';
-
-                tdName.appendChild(inputName);
-                tdPrice.appendChild(inputPrice);
-
-                tr.appendChild(tdName);
-                tr.appendChild(tdPrice);
-
-                tbody.appendChild(tr);
-            });
-
-            // صف جديد (أخضر) للإضافة
-            const newTr = document.createElement('tr');
-            newTr.className = 'new-row';
-
-            const newTdName = document.createElement('td');
-            const newInputName = document.createElement('input');
-            newInputName.placeholder = 'صنف جديد...';
-            newTdName.appendChild(newInputName);
-
-            const newTdPrice = document.createElement('td');
-            const newInputPrice = document.createElement('input');
-            newInputPrice.type = 'number';
-            newInputPrice.step = '0.01';
-            newInputPrice.placeholder = 'سعر جديد';
-            newTdPrice.appendChild(newInputPrice);
-
-            newTr.appendChild(newTdName);
-            newTr.appendChild(newTdPrice);
-
-            tbody.appendChild(newTr);
-
-            attachEventListeners();
-        }
-
-        // ربط الأحداث (كل تغيير يحفظ على Firebase فوراً)
-        function attachEventListeners() {
-            const inputs = document.querySelectorAll('#tableBody input');
-            inputs.forEach((input) => {
-                input.oninput = input.onblur = debounce(saveData, 300);
+            // إنشاء كروت المنتجات
+            products.forEach(product => {
+                const card = createProductCard(product);
+                container.appendChild(card);
             });
         }
 
+        // إنشاء كرت منتج واحد
+        function createProductCard(product) {
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden fade-in hover:-translate-y-2 group';
+            
+            card.innerHTML = `
+                <div class="h-48 overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-100">
+                    <img src="${product.image}" alt="${product.name}" 
+                         class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                </div>
+                <div class="p-6">
+                    <h3 class="font-bold text-xl text-gray-800 mb-2 line-clamp-2">${product.name}</h3>
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-2xl font-bold text-blue-600">${product.price.toLocaleString()} ل.ل</span>
+                        <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                            ${product.stock} متوفر
+                        </span>
+                    </div>
+                    <div class="text-sm text-gray-500 mb-4">${product.category}</div>
+                    <button class="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-1">
+                        عرض التفاصيل
+                    </button>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        // مسح جميع الفلاتر
+        function clearFilters() {
+            document.getElementById('searchName').value = '';
+            document.getElementById('filterCategory').value = '';
+            document.getElementById('filterPrice').value = '';
+            filterProducts();
+        }
+
+        // Debounce لتحسين الأداء
         function debounce(func, wait) {
             let timeout;
-            return function executedFunction() {
-                const context = this;
-                const args = arguments;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
                 clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(context, args), wait);
+                timeout = setTimeout(later, wait);
             };
         }
-
-        // حفظ التعديلات/الإضافات
-        function saveData() {
-            if (isSaving) return;
-            isSaving = true;
-
-            const updates = {};
-            const existingRows = document.querySelectorAll('#tableBody tr:not(.new-row)');
-
-            existingRows.forEach((row, idx) => {
-                const nameInput = row.cells[0].querySelector('input');
-                const priceInput = row.cells[1].querySelector('input');
-
-                const name = nameInput.value.trim();
-                const price = priceInput.value.trim();
-
-                if (name) {
-                    const key = Object.keys(itemsData)[idx];
-                    updates[key] = { name, price };
-                }
-            });
-
-            // صف جديد (إضافة)
-            const newRow = document.querySelector('#tableBody tr.new-row');
-            const newName = newRow.cells[0].querySelector('input').value.trim();
-            const newPrice = newRow.cells[1].querySelector('input').value.trim();
-
-            if (newName && newPrice && !itemsData.find((item) => item.name === newName)) {
-                const newKey = 'new_' + Date.now();
-                updates[newKey] = { name: newName, price: newPrice };
-
-                newRow.cells[0].querySelector('input').value = '';
-                newRow.cells[1].querySelector('input').value = '';
-            }
-
-            itemsRef.update(updates);
-            isSaving = false;
-        }
-
-        // فلتر الأسماء (كل الكلمات موجودة - AND)
-        document.getElementById('searchInput').addEventListener('input', function () {
-            const query = this.value.toLowerCase().trim();
-
-            let filtered = itemsData;
-            if (query) {
-                const words = query.split(/\s+/).filter((w) => w.length > 0);
-                filtered = itemsData.filter((item) =>
-                    words.every((word) => item.name.toLowerCase().includes(word))
-                );
-            }
-
-            renderTable(filtered);
-        });
-
-        // تحميل البيانات عند فتح الصفحة
-        window.addEventListener('load', () => {
-            setTimeout(initItems, 1000);
-        });
     </script>
 </body>
 </html>
