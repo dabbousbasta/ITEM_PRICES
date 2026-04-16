@@ -135,7 +135,7 @@
     <div id="passwordForm">
         <h3>ادخل إلى لوحة الإدارة</h3>
         <input type="password" id="passInput" placeholder="أدخل كلمة المرور..." />
-        <button onclick="checkPassword()">دخول</button>
+        <button id="enterBtn">دخول</button>
     </div>
 
     <div id="editArea" style="display: none;">
@@ -155,6 +155,7 @@
     </div>
 
     <script>
+        // ==================== Firebase Config ====================
         const firebaseConfig = {
             apiKey: "AIzaSyDdJ3nHJJb6DO4hltDcXZry4HqxXatJSts",
             authDomain: "dabbous-basta-prices.firebaseapp.com",
@@ -170,16 +171,19 @@
         const db = firebase.database();
         const pricesRef = db.ref('prices');
 
+        // ================ Variables ==================
         let itemsData = [];
         let filteredData = [];
         let searchTimeout = null;
-        const PASSWORD = '77543211';
+        const PASSWORD = '77543211'; // ✔️ كما غيرت أنت
 
+        // ================ Password Checker ==========
         function checkPassword() {
             const input = document.getElementById('passInput').value;
             if (input === PASSWORD) {
                 document.getElementById('passwordForm').style.display = 'none';
                 document.getElementById('editArea').style.display = 'block';
+
                 db.ref('.info/connected').on('value', (snap) => {
                     const el = document.getElementById('status');
                     if (snap.val()) {
@@ -189,6 +193,7 @@
                         el.textContent = '🔴 غير متصل';
                     }
                 });
+
                 pricesRef.on('value', (snapshot) => {
                     const val = snapshot.val();
                     itemsData = val ? Object.values(val) : [];
@@ -200,6 +205,7 @@
             }
         }
 
+        // ============ Render Table ===============
         function renderTable(data) {
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
@@ -217,7 +223,7 @@
                 const trashBtn = document.createElement('span');
                 trashBtn.className = 'trash-btn';
                 trashBtn.innerHTML = '🗑️';
-                trashBtn.dataset.key = Object.keys(snapshot.val())[idx];
+                trashBtn.dataset.key = Object.keys(itemsData)[idx];
 
                 trashBtn.onclick = function () {
                     const key = this.dataset.key;
@@ -244,7 +250,7 @@
                 tbody.appendChild(tr);
             });
 
-            // صف جديد للإضافة
+            // إضافة صنف جديد (صف واحد أسفل الجدول)
             const newTr = document.createElement('tr');
 
             const newTdName = document.createElement('td');
@@ -274,6 +280,7 @@
             tbody.appendChild(newTr);
         }
 
+        // ================== Save Data =================
         function debounce(func, wait) {
             let timeout;
             return function executedFunction() {
@@ -300,4 +307,12 @@
                 pricesRef.update(updates);
                 document.getElementById('status').textContent = '💾 تم حفظ التعديل';
             }
-       
+        }
+
+        // ================== Onload ==================
+        window.addEventListener('load', () => {
+            document.getElementById('enterBtn').onclick = checkPassword;
+        });
+    </script>
+</body>
+</html>
