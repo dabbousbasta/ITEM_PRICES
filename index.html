@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بحث الأصناف - دبوس البسطة</title>
+    <title>اسعار الأصناف - دبوس البسطة</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -12,7 +12,6 @@
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); 
             min-height: 100vh; 
             padding: 10px; 
-            line-height: 1.6; 
         }
         .header { 
             display: flex; 
@@ -24,82 +23,43 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
             margin-bottom: 20px; 
         }
-        #logo { 
-            height: 50px; 
-            width: auto; 
-        }
-        #logo:not([src]) { display: none; }
+        #logo { height: 50px; width: auto; }
         #search { 
-            width: 70%; 
-            padding: 12px 20px; 
-            border: 2px solid #e0e0e0; 
-            border-radius: 25px; 
-            font-size: 16px; 
-            outline: none; 
-            transition: all 0.3s ease; 
+            width: 70%; padding: 12px 20px; border: 2px solid #e0e0e0; 
+            border-radius: 25px; font-size: 16px; outline: none; transition: all 0.3s; 
         }
-        #search:focus { 
-            border-color: #4CAF50; 
-            box-shadow: 0 0 10px rgba(76,175,80,0.3); 
-        }
+        #search:focus { border-color: #4CAF50; box-shadow: 0 0 10px rgba(76,175,80,0.3); }
         #status { 
-            text-align: center; 
-            margin: 10px 0; 
-            font-weight: bold; 
-            color: #666; 
-            padding: 10px; 
-            background: white; 
-            border-radius: 10px; 
+            text-align: center; margin: 10px 0; font-weight: bold; padding: 15px; 
+            border-radius: 10px; margin-bottom: 20px; 
         }
         table { 
-            width: 100%; 
-            background: white; 
-            border-radius: 15px; 
-            overflow: hidden; 
-            box-shadow: 0 8px 30px rgba(0,0,0,0.15); 
-            border-collapse: collapse; 
-            display: block; 
-            overflow-x: auto; 
-            white-space: nowrap; 
+            width: 100%; background: white; border-radius: 15px; overflow: hidden; 
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15); border-collapse: collapse; 
         }
-        th, td { 
-            padding: 15px 12px; 
-            text-align: right; 
-            font-size: 15px; 
-            min-width: 150px; 
-        }
-        th { 
-            background: linear-gradient(135deg, #4CAF50, #45a049); 
-            color: white; 
-            font-weight: bold; 
-            position: sticky; 
-            top: 0; 
-            z-index: 10; 
-        }
+        th, td { padding: 15px 12px; text-align: right; font-size: 15px; }
+        th { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; font-weight: bold; }
         tr:nth-child(even) { background: #f8f9fa; }
-        tr:hover { background: #e8f5e8; transform: scale(1.01); transition: 0.2s; }
+        tr:hover { background: #e8f5e8; }
+        .no-results { text-align: center; padding: 40px; color: #999; font-size: 18px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .loading { background: #fff3cd; color: #856404; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         @media (max-width: 768px) { 
-            .header { flex-direction: column; gap: 15px; text-align: center; }
+            .header { flex-direction: column; gap: 15px; } 
             #search { width: 100%; }
-            th, td { padding: 12px 8px; font-size: 14px; min-width: 120px; }
         }
-        .no-results { 
-            text-align: center; 
-            padding: 40px; 
-            color: #999; 
-            font-size: 18px; 
-        }
-        .error { color: #f44336 !important; }
-        .success { color: #4CAF50 !important; }
     </style>
 </head>
 <body>
     <div class="header">
-        <img id="logo" src="LOGO.PNG" alt="دبوس البسطة" onerror="console.log('Logo not found'); this.src=''; this.alt='';">
-        <input type="text" id="search" placeholder="اكتب جزء من اسم الصنف... (أي ترتيب أو كلمات متعددة)" oninput="filterItems()">
+        <img id="logo" src="LOGO.PNG" alt="دبوس البسطة" onerror="this.style.display='none';">
+        <input type="text" id="search" placeholder="اكتب جزء من اسم الصنف..." oninput="filterItems()">
     </div>
-    <div id="status">جاري تحميل ITEMS.xlsx...</div>
-    <table id="table">
+    
+    <div id="status" class="loading">⏳ جاري تحميل ITEMS.xlsx تلقائياً...</div>
+    
+    <table id="table" style="display:none;">
         <thead>
             <tr>
                 <th>اسم الصنف</th>
@@ -111,110 +71,99 @@
 
     <script>
         let items = [];
-        let originalItems = [];
 
-        async function loadItems() {
+        function loadItems(filename = 'ITEMS.xlsx') {
             const status = document.getElementById('status');
-            status.textContent = 'جاري تحميل ITEMS.xlsx...';
-            status.className = '';
+            status.textContent = `⏳ جاري تحميل ${filename}...`;
+            status.className = 'loading';
             
-            try {
-                // جرب ITEMS.xlsx أولاً، ثم ITEMS
-                let response = await fetch('ITEMS.xlsx');
-                let data;
-                if (!response.ok) {
-                    console.log('ITEMS.xlsx not found, trying ITEMS');
-                    response = await fetch('ITEMS');
-                    if (!response.ok) throw new Error('الملف ITEMS.xlsx أو ITEMS غير موجود في المجلد الرئيسي');
-                    data = await response.arrayBuffer();
-                } else {
-                    data = await response.arrayBuffer();
+            const oReq = new XMLHttpRequest();
+            oReq.open('GET', filename, true);
+            oReq.responseType = 'arraybuffer';
+            
+            oReq.onload = function(e) {
+                if (oReq.status !== 200) {
+                    // جرب الاسم الثاني
+                    if (filename === 'ITEMS.xlsx') {
+                        console.log('ITEMS.xlsx failed, trying ITEMS');
+                        return loadItems('ITEMS');
+                    }
+                    throw new Error(`الملف ${filename} غير موجود (Status: ${oReq.status})`);
                 }
                 
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                const sheetNames = workbook.SheetNames;
-                console.log('Sheets:', sheetNames);
-                
-                if (!sheetNames.includes('ITEMS')) {
-                    throw new Error(`الورقة ITEMS غير موجودة. الورقات المتوفرة: ${sheetNames.join(', ')}`);
+                try {
+                    const data = new Uint8Array(oReq.response);
+                    let bstr = '';
+                    for(let i = 0; i < data.length; i++) bstr += String.fromCharCode(data[i]);
+                    
+                    const workbook = XLSX.read(bstr, { type: 'binary' });
+                    console.log('Sheets:', workbook.SheetNames);
+                    
+                    if (!workbook.SheetNames.includes('ITEMS')) {
+                        throw new Error(`لا توجد ورقة ITEMS. المتوفرة: ${workbook.SheetNames.join(', ')}`);
+                    }
+                    
+                    const sheet = workbook.Sheets['ITEMS'];
+                    const json = XLSX.utils.sheet_to_json(sheet, { 
+                        defval: '', raw: false, header: 1, blankrows: false 
+                    });
+                    
+                    console.log('Rows:', json.length);
+                    items = json.slice(1).map(row => ({
+                        name: (row[4] || '').toString().trim(),
+                        price: parseFloat(row[6] || 0) || 0
+                    })).filter(item => item.name);
+                    
+                    console.log(`تم تحميل ${items.length} صنف`);
+                    localStorage.setItem('itemsData', JSON.stringify(items)); // backup
+                    
+                    status.textContent = `✅ ${items.length} صنف محمل تلقائياً!`;
+                    status.className = 'success';
+                    document.getElementById('table').style.display = 'table';
+                    renderTable(items);
+                    
+                } catch (error) {
+                    console.error('Parse error:', error);
+                    status.innerHTML = `❌ خطأ في قراءة الملف: ${error.message}<br>تأكد من وجود ITEMS.xlsx في المجلد الرئيسي`;
+                    status.className = 'error';
                 }
-                
-                const sheet = workbook.Sheets['ITEMS'];
-                const json = XLSX.utils.sheet_to_json(sheet, { 
-                    defval: '', 
-                    raw: false, 
-                    header: 1,
-                    blankrows: false 
-                });
-                
-                console.log('Raw data rows:', json.length);
-                console.log('First row (headers):', json[0]);
-                if (json.length > 1) console.log('Sample data:', json[1].slice(0,10));
-                
-                // ابدأ من الصف 2 (index 1)، عمود E=4, G=6
-                originalItems = json.slice(1).map((row, idx) => {
-                    const name = (row[4] || '').toString().trim();
-                    const price = (row[6] || '').toString().trim();
-                    if (name) console.log(`Row ${idx+2}: Name="${name}", Price="${price}"`);
-                    return {
-                        name: name,
-                        price: parseFloat(price) || 0
-                    };
-                }).filter(item => item.name);
-                
-                items = [...originalItems];
-                
-                status.textContent = `✅ ${items.length} صنف محمل بنجاح!`;
-                status.className = 'success';
-                renderTable(items);
-                
-            } catch (error) {
-                console.error('Load error:', error);
-                status.innerHTML = `❌ خطأ: ${error.message}<br>تأكد من وجود <strong>ITEMS.xlsx</strong> أو <strong>ITEMS</strong> في نفس المجلد`;
+            };
+            
+            oReq.onerror = function() {
+                status.innerHTML = `❌ فشل تحميل ${filename}. تأكد من وجوده في <strong>المجلد الرئيسي</strong>`;
                 status.className = 'error';
-                document.getElementById('table').style.display = 'none';
-            }
+            };
+            
+            oReq.send();
         }
 
         function renderTable(data) {
             const tbody = document.getElementById('tbody');
-            const status = document.getElementById('status');
-            tbody.innerHTML = '';
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" class="no-results">لا توجد أصناف مطابقة</td></tr>';
-                status.textContent = 'لا توجد نتائج';
-                return;
-            }
-            status.textContent = `${data.length} صنف`;
-            data.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${item.name || ''}</td>
-                    <td>${item.price ? item.price.toLocaleString('ar-LB') + ' ل.ل' : 'غير محدد'}</td>
-                `;
-                tbody.appendChild(tr);
-            });
+            tbody.innerHTML = data.length ? 
+                data.map(item => 
+                    `<tr>
+                        <td>${item.name}</td>
+                        <td>${item.price.toLocaleString('ar-LB')} ل.ل</td>
+                    </tr>`
+                ).join('') : 
+                '<tr><td colspan="2" class="no-results">لا توجد أصناف مطابقة</td></tr>';
         }
 
         function filterItems() {
-            const query = document.getElementById('search').value.trim().toLowerCase();
-            if (!query) {
-                renderTable(originalItems);
-                return;
-            }
-            const words = query.split(/\s+/).filter(w => w.length > 0);
-            const filtered = originalItems.filter(item => 
-                words.every(word => 
-                    item.name.toLowerCase().includes(word)
-                )
-            );
+            const query = document.getElementById('search').value.toLowerCase().trim();
+            const filtered = query ? 
+                items.filter(item => {
+                    const words = query.split(/\s+/);
+                    return words.every(word => item.name.toLowerCase().includes(word));
+                }) : items;
             renderTable(filtered);
+            document.getElementById('status').textContent = `${filtered.length} صنف`;
         }
 
-        // تحميل عند فتح الصفحة
+        // بدء التحميل التلقائي
         window.addEventListener('load', () => {
-            console.log('Page loaded, starting...');
-            setTimeout(loadItems, 500);  // تأخير بسيط للشبكة
+            console.log('بدء التحميل التلقائي...');
+            loadItems();
         });
     </script>
 </body>
