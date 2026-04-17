@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>اسعار الأصناف - دبوس البسطة</title>
+    <title>بحث الأصناف - دبوس البسطة</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -72,6 +72,21 @@
     <script>
         let items = [];
 
+        function parsePrice(rawPrice) {
+            if (!rawPrice) return 0;
+            // تحويل string إلى number: إزالة الفواصل/النقاط/العملة
+            const clean = rawPrice.toString().replace(/[^\d.,]/g, '').replace(',', '');
+            const num = parseFloat(clean);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function formatPrice(num) {
+            return new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(num) + ' $';
+        }
+
         function loadItems(filename = 'ITEMS.xlsx') {
             const status = document.getElementById('status');
             status.textContent = `⏳ جاري تحميل ${filename}...`;
@@ -83,7 +98,6 @@
             
             oReq.onload = function(e) {
                 if (oReq.status !== 200) {
-                    // جرب الاسم الثاني
                     if (filename === 'ITEMS.xlsx') {
                         console.log('ITEMS.xlsx failed, trying ITEMS');
                         return loadItems('ITEMS');
@@ -97,7 +111,6 @@
                     for(let i = 0; i < data.length; i++) bstr += String.fromCharCode(data[i]);
                     
                     const workbook = XLSX.read(bstr, { type: 'binary' });
-                    console.log('Sheets:', workbook.SheetNames);
                     
                     if (!workbook.SheetNames.includes('ITEMS')) {
                         throw new Error(`لا توجد ورقة ITEMS. المتوفرة: ${workbook.SheetNames.join(', ')}`);
@@ -108,29 +121,39 @@
                         defval: '', raw: false, header: 1, blankrows: false 
                     });
                     
-                    console.log('Rows:', json.length);
-                    items = json.slice(1).map(row => ({
-                        name: (row[4] || '').toString().trim(),
-                        price: parseFloat(row[6] || 0) || 0
-                    })).filter(item => item.name);
+                    console.log('Raw headers:', json[0]?.slice(0, 10));
+                    console.log('Sample row 2:', json[1]?.slice(0, 10));
+                    console.log('Sample row 3:', json[2]?.slice(0, 10));
                     
-                    console.log(`تم تحميل ${items.length} صنف`);
-                    localStorage.setItem('itemsData', JSON.stringify(items)); // backup
+                    items = json.slice(1).map((row, idx) => {
+                        const name = (row[4] || '').toString().trim();  // E: Item_name
+                        const rawPrice = row[6];  // G: Sale1
+                        const price = parsePrice(rawPrice);
+                        
+                        if (idx < 5 && name) {  // log أول 5 أصناف
+                            console.log(`Row ${idx+2}: Name="${name}", RawPrice="${rawPrice}" (${typeof rawPrice}), Parsed=${price}`);
+                        }
+                        
+                        return { name, price };
+                    }).filter(item => item.name && item.price > 0);
                     
-                    status.textContent = `✅ ${items.length} صنف محمل تلقائياً!`;
+                    console.log(`✅ تم تحميل ${items.length} صنف بسعر صحيح`);
+                    localStorage.setItem('itemsData', JSON.stringify(items));
+                    
+                    status.textContent = `✅ ${items.length} صنف محمل! (الأسعار بصيغة $)`;  
                     status.className = 'success';
                     document.getElementById('table').style.display = 'table';
                     renderTable(items);
                     
                 } catch (error) {
                     console.error('Parse error:', error);
-                    status.innerHTML = `❌ خطأ في قراءة الملف: ${error.message}<br>تأكد من وجود ITEMS.xlsx في المجلد الرئيسي`;
+                    status.innerHTML = `❌ خطأ: ${error.message}`;
                     status.className = 'error';
                 }
             };
             
             oReq.onerror = function() {
-                status.innerHTML = `❌ فشل تحميل ${filename}. تأكد من وجوده في <strong>المجلد الرئيسي</strong>`;
+                status.innerHTML = `❌ فشل تحميل ${filename}. ضع ITEMS.xlsx في المجلد الرئيسي`;
                 status.className = 'error';
             };
             
@@ -143,26 +166,24 @@
                 data.map(item => 
                     `<tr>
                         <td>${item.name}</td>
-                        <td>${item.price.toLocaleString('ar-LB')} ل.ل</td>
+                        <td>${formatPrice(item.price)}</td>
                     </tr>`
                 ).join('') : 
-                '<tr><td colspan="2" class="no-results">لا توجد أصناف مطابقة</td></tr>';
+                '<tr><td colspan="2" class="no-results">لا توجد أصناف بسعر صحيح</td></tr>';
         }
 
         function filterItems() {
             const query = document.getElementById('search').value.toLowerCase().trim();
             const filtered = query ? 
-                items.filter(item => {
-                    const words = query.split(/\s+/);
-                    return words.every(word => item.name.toLowerCase().includes(word));
-                }) : items;
+                items.filter(item => 
+                    item.name.toLowerCase().includes(query.split(/\s+/).join('.*'))
+                ) : items;
             renderTable(filtered);
             document.getElementById('status').textContent = `${filtered.length} صنف`;
         }
 
-        // بدء التحميل التلقائي
         window.addEventListener('load', () => {
-            console.log('بدء التحميل التلقائي...');
+            console.log('تحميل تلقائي...');
             loadItems();
         });
     </script>
