@@ -57,7 +57,7 @@
         <input type="text" id="search" placeholder="اكتب جزء من اسم الصنف..." oninput="filterItems()">
     </div>
     
-    <div id="status" class="loading">⏳ جاري تحميل items.xlsx تلقائياً...</div>
+    <div id="status" class="loading">⏳ جاري تحميل الاصناف.xlsx تلقائياً...</div>
     
     <table id="table" style="display:none;">
         <thead>
@@ -74,7 +74,6 @@
 
         function parsePrice(rawPrice) {
             if (!rawPrice) return 0;
-            // تحويل string إلى number: إزالة الفواصل/النقاط/العملة
             const clean = rawPrice.toString().replace(/[^\d.,]/g, '').replace(',', '');
             const num = parseFloat(clean);
             return isNaN(num) ? 0 : num;
@@ -87,7 +86,7 @@
             }).format(num) + ' $';
         }
 
-        function loadItems(filename = 'items.xlsx') {
+        function loadItems(filename = 'الاصناف.xlsx') {
             const status = document.getElementById('status');
             status.textContent = `⏳ جاري تحميل ${filename}...`;
             status.className = 'loading';
@@ -98,11 +97,7 @@
             
             oReq.onload = function(e) {
                 if (oReq.status !== 200) {
-                    if (filename === 'items.xlsx') {
-                        console.log('items.xlsx failed, trying ITEMS');
-                        return loadItems('ITEMS');
-                    }
-                    throw new Error(`الملف ${filename} غير موجود (Status: ${oReq.status})`);
+                    throw new Error(`الملف ${filename} غير موجود (Status: ${oReq.status}). ضعه في المجلد الرئيسي`);
                 }
                 
                 try {
@@ -111,27 +106,27 @@
                     for(let i = 0; i < data.length; i++) bstr += String.fromCharCode(data[i]);
                     
                     const workbook = XLSX.read(bstr, { type: 'binary' });
+                    console.log('الورقات:', workbook.SheetNames);
                     
-                    if (!workbook.SheetNames.includes('ITEMS')) {
-                        throw new Error(`لا توجد ورقة ITEMS. المتوفرة: ${workbook.SheetNames.join(', ')}`);
+                    if (!workbook.SheetNames.includes('الاصناف')) {
+                        throw new Error(`لا توجد ورقة "الاصناف". المتوفرة: ${workbook.SheetNames.join(', ')}`);
                     }
                     
-                    const sheet = workbook.Sheets['ITEMS'];
+                    const sheet = workbook.Sheets['الاصناف'];
                     const json = XLSX.utils.sheet_to_json(sheet, { 
                         defval: '', raw: false, header: 1, blankrows: false 
                     });
                     
                     console.log('Raw headers:', json[0]?.slice(0, 10));
                     console.log('Sample row 2:', json[1]?.slice(0, 10));
-                    console.log('Sample row 3:', json[2]?.slice(0, 10));
                     
                     items = json.slice(1).map((row, idx) => {
-                        const name = (row[4] || '').toString().trim();  // E: Item_name
-                        const rawPrice = row[6];  // G: Sale1
+                        const name = (row[4] || '').toString().trim();  // E: Item_name (العمود 5)
+                        const rawPrice = row[6];  // G: Sale1 (العمود 7)
                         const price = parsePrice(rawPrice);
                         
-                        if (idx < 5 && name) {  // log أول 5 أصناف
-                            console.log(`Row ${idx+2}: Name="${name}", RawPrice="${rawPrice}" (${typeof rawPrice}), Parsed=${price}`);
+                        if (idx < 5 && name) {
+                            console.log(`الصف ${idx+2}: اسم="${name}", السعر الخام="${rawPrice}" (${typeof rawPrice}), السعر=${price}`);
                         }
                         
                         return { name, price };
@@ -140,20 +135,20 @@
                     console.log(`✅ تم تحميل ${items.length} صنف بسعر صحيح`);
                     localStorage.setItem('itemsData', JSON.stringify(items));
                     
-                    status.textContent = `✅ ${items.length} صنف محمل! (الأسعار بصيغة $)`;  
+                    status.textContent = `✅ ${items.length} صنف محمل من "الاصناف"!`;
                     status.className = 'success';
                     document.getElementById('table').style.display = 'table';
                     renderTable(items);
                     
                 } catch (error) {
-                    console.error('Parse error:', error);
-                    status.innerHTML = `❌ خطأ: ${error.message}`;
+                    console.error('خطأ في القراءة:', error);
+                    status.innerHTML = `❌ خطأ: ${error.message}<br>تأكد من وجود <strong>الاصناف.xlsx</strong> وورقة <strong>الاصناف</strong>`;
                     status.className = 'error';
                 }
             };
             
             oReq.onerror = function() {
-                status.innerHTML = `❌ فشل تحميل ${filename}. ضع items.xlsx في المجلد الرئيسي`;
+                status.innerHTML = `❌ فشل تحميل الاصناف.xlsx. ضعه في <strong>المجلد الرئيسي</strong>`;
                 status.className = 'error';
             };
             
@@ -175,15 +170,16 @@
         function filterItems() {
             const query = document.getElementById('search').value.toLowerCase().trim();
             const filtered = query ? 
-                items.filter(item => 
-                    item.name.toLowerCase().includes(query.split(/\s+/).join('.*'))
-                ) : items;
+                items.filter(item => {
+                    const words = query.split(/\s+/).filter(w => w);
+                    return words.every(word => item.name.toLowerCase().includes(word));
+                }) : items;
             renderTable(filtered);
             document.getElementById('status').textContent = `${filtered.length} صنف`;
         }
 
         window.addEventListener('load', () => {
-            console.log('تحميل تلقائي...');
+            console.log('تحميل الاصناف.xlsx تلقائي...');
             loadItems();
         });
     </script>
