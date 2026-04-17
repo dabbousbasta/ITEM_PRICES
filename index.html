@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بحث الأصناف - دبوس البسطة</title>
+    <title>دبوس البسطة - بحث الأصناف</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="shortcut icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" type="image/png" href="logo.png">
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -14,26 +17,19 @@
             padding: 10px; 
         }
         .header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
+            text-align: center; 
             background: white; 
-            padding: 15px 20px; 
+            padding: 20px; 
             border-radius: 15px; 
             box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
             margin-bottom: 10px; 
         }
-        #logo { 
-            height: 50px; 
-            width: auto; 
-            max-width: 150px; 
-        }
-        #logo:not([src]) { display: none; }
         #search { 
-            width: 70%; padding: 12px 20px; border: 2px solid #e0e0e0; 
-            border-radius: 25px; font-size: 16px; outline: none; transition: all 0.3s; 
+            width: 90%; max-width: 500px; padding: 15px 20px; border: 2px solid #e0e0e0; 
+            border-radius: 25px; font-size: 18px; outline: none; transition: all 0.3s; 
+            display: block; margin: 0 auto; 
         }
-        #search:focus { border-color: #4CAF50; box-shadow: 0 0 10px rgba(76,175,80,0.3); }
+        #search:focus { border-color: #4CAF50; box-shadow: 0 0 15px rgba(76,175,80,0.3); }
         #status { 
             text-align: center; margin: 10px 0; font-weight: bold; padding: 15px; 
             border-radius: 10px; margin-bottom: 10px; 
@@ -66,9 +62,7 @@
             padding: 15px; border-radius: 10px; text-align: center; 
         }
         @media (max-width: 768px) { 
-            .header { flex-direction: column; gap: 15px; text-align: center; } 
-            #search { width: 100%; }
-            #logo { max-width: 120px; }
+            #search { width: 95%; font-size: 16px; padding: 12px 15px; }
             th.name-col, td.name-col { width: 60%; }
             th.price-col, td.price-col { width: 40%; font-size: 16px; }
         }
@@ -76,10 +70,7 @@
 </head>
 <body>
     <div class="header">
-        <img id="logo" src="logo.png" alt="دبوس البسطة" 
-             onerror="this.onerror=null; this.src='LOGO.PNG'; 
-                      setTimeout(() => { if(this.naturalWidth === 0) this.style.display='none'; }, 100);">
-        <input type="text" id="search" placeholder="اكتب جزء من اسم الصنف..." oninput="filterItems()">
+        <input type="text" id="search" placeholder="🔍 اكتب جزء من اسم الصنف للبحث..." oninput="filterItems()">
     </div>
     
     <div id="status" class="loading-status">⏳ جاري تحميل الاصناف.xlsx...</div>
