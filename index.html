@@ -57,7 +57,7 @@
         <input type="text" id="search" placeholder="اكتب جزء من اسم الصنف..." oninput="filterItems()">
     </div>
     
-    <div id="status" class="loading">⏳ جاري تحميل ITEMS.xlsx تلقائياً...</div>
+    <div id="status" class="loading">⏳ جاري تحميل items.xlsx تلقائياً...</div>
     
     <table id="table" style="display:none;">
         <thead>
@@ -87,7 +87,7 @@
             }).format(num) + ' $';
         }
 
-        function loadItems(filename = 'ITEMS.xlsx') {
+        function loadItems(filename = 'items.xlsx') {
             const status = document.getElementById('status');
             status.textContent = `⏳ جاري تحميل ${filename}...`;
             status.className = 'loading';
@@ -98,8 +98,8 @@
             
             oReq.onload = function(e) {
                 if (oReq.status !== 200) {
-                    if (filename === 'ITEMS.xlsx') {
-                        console.log('ITEMS.xlsx failed, trying ITEMS');
+                    if (filename === 'items.xlsx') {
+                        console.log('items.xlsx failed, trying ITEMS');
                         return loadItems('ITEMS');
                     }
                     throw new Error(`الملف ${filename} غير موجود (Status: ${oReq.status})`);
@@ -153,7 +153,7 @@
             };
             
             oReq.onerror = function() {
-                status.innerHTML = `❌ فشل تحميل ${filename}. ضع ITEMS.xlsx في المجلد الرئيسي`;
+                status.innerHTML = `❌ فشل تحميل ${filename}. ضع items.xlsx في المجلد الرئيسي`;
                 status.className = 'error';
             };
             
