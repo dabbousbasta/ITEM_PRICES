@@ -21,9 +21,14 @@
             padding: 15px 20px; 
             border-radius: 15px; 
             box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
-            margin-bottom: 20px; 
+            margin-bottom: 10px; 
         }
-        #logo { height: 50px; width: auto; }
+        #logo { 
+            height: 50px; 
+            width: auto; 
+            max-width: 150px; 
+        }
+        #logo:not([src]) { display: none; }
         #search { 
             width: 70%; padding: 12px 20px; border: 2px solid #e0e0e0; 
             border-radius: 25px; font-size: 16px; outline: none; transition: all 0.3s; 
@@ -31,39 +36,59 @@
         #search:focus { border-color: #4CAF50; box-shadow: 0 0 10px rgba(76,175,80,0.3); }
         #status { 
             text-align: center; margin: 10px 0; font-weight: bold; padding: 15px; 
-            border-radius: 10px; margin-bottom: 20px; 
+            border-radius: 10px; margin-bottom: 10px; 
         }
         table { 
             width: 100%; background: white; border-radius: 15px; overflow: hidden; 
             box-shadow: 0 8px 30px rgba(0,0,0,0.15); border-collapse: collapse; 
+            margin-top: 0 !important; 
+        }
+        th.name-col, td.name-col { 
+            width: 66.66%;  /* ثلثين للصنف */
+        }
+        th.price-col, td.price-col { 
+            width: 33.33%;  /* ثلث للسعر */
+            font-weight: bold;
+            color: #2e7d32;
         }
         th, td { padding: 15px 12px; text-align: right; font-size: 15px; }
         th { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; font-weight: bold; }
         tr:nth-child(even) { background: #f8f9fa; }
         tr:hover { background: #e8f5e8; }
         .no-results { text-align: center; padding: 40px; color: #999; font-size: 18px; }
-        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .loading { background: #fff3cd; color: #856404; }
-        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .error-status { 
+            background: #f8d7da !important; color: #721c24 !important; 
+            border: 1px solid #f5c6cb; padding: 15px; border-radius: 10px; 
+            text-align: center; font-weight: bold; margin-bottom: 10px; 
+        }
+        .loading-status { 
+            background: #fff3cd !important; color: #856404 !important; 
+            padding: 15px; border-radius: 10px; text-align: center; 
+        }
         @media (max-width: 768px) { 
-            .header { flex-direction: column; gap: 15px; } 
+            .header { flex-direction: column; gap: 15px; text-align: center; } 
             #search { width: 100%; }
+            #logo { max-width: 120px; }
+            th.name-col, td.name-col { width: 60%; }
+            th.price-col, td.price-col { width: 40%; font-size: 16px; }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <img id="logo" src="LOGO.PNG" alt="دبوس البسطة" onerror="this.style.display='none';">
+        <img id="logo" src="logo.png" alt="دبوس البسطة" 
+             onerror="this.onerror=null; this.src='LOGO.PNG'; 
+                      setTimeout(() => { if(this.naturalWidth === 0) this.style.display='none'; }, 100);">
         <input type="text" id="search" placeholder="اكتب جزء من اسم الصنف..." oninput="filterItems()">
     </div>
     
-    <div id="status" class="loading">⏳ جاري تحميل الاصناف.xlsx تلقائياً...</div>
+    <div id="status" class="loading-status">⏳ جاري تحميل الاصناف.xlsx...</div>
     
     <table id="table" style="display:none;">
         <thead>
             <tr>
-                <th>اسم الصنف</th>
-                <th>سعر المبيع</th>
+                <th class="name-col">اسم الصنف</th>
+                <th class="price-col">سعر المبيع</th>
             </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -71,6 +96,7 @@
 
     <script>
         let items = [];
+        let statusEl = null;
 
         function parsePrice(rawPrice) {
             if (!rawPrice) return 0;
@@ -86,10 +112,15 @@
             }).format(num) + ' $';
         }
 
+        function updateStatus(msg, type = 'success') {
+            statusEl.textContent = msg;
+            statusEl.className = type + '-status';
+        }
+
         function loadItems(filename = 'الاصناف.xlsx') {
-            const status = document.getElementById('status');
-            status.textContent = `⏳ جاري تحميل ${filename}...`;
-            status.className = 'loading';
+            statusEl = document.getElementById('status');
+            statusEl.textContent = `⏳ جاري تحميل ${filename}...`;
+            statusEl.className = 'loading-status';
             
             const oReq = new XMLHttpRequest();
             oReq.open('GET', filename, true);
@@ -97,7 +128,8 @@
             
             oReq.onload = function(e) {
                 if (oReq.status !== 200) {
-                    throw new Error(`الملف ${filename} غير موجود (Status: ${oReq.status}). ضعه في المجلد الرئيسي`);
+                    updateStatus(`❌ الملف ${filename} غير موجود. ضعه في المجلد الرئيسي`, 'error');
+                    return;
                 }
                 
                 try {
@@ -106,10 +138,10 @@
                     for(let i = 0; i < data.length; i++) bstr += String.fromCharCode(data[i]);
                     
                     const workbook = XLSX.read(bstr, { type: 'binary' });
-                    console.log('الورقات:', workbook.SheetNames);
                     
                     if (!workbook.SheetNames.includes('الاصناف')) {
-                        throw new Error(`لا توجد ورقة "الاصناف". المتوفرة: ${workbook.SheetNames.join(', ')}`);
+                        updateStatus(`❌ لا توجد ورقة "الاصناف". المتوفرة: ${workbook.SheetNames.join(', ')}`, 'error');
+                        return;
                     }
                     
                     const sheet = workbook.Sheets['الاصناف'];
@@ -117,39 +149,26 @@
                         defval: '', raw: false, header: 1, blankrows: false 
                     });
                     
-                    console.log('Raw headers:', json[0]?.slice(0, 10));
-                    console.log('Sample row 2:', json[1]?.slice(0, 10));
-                    
-                    items = json.slice(1).map((row, idx) => {
-                        const name = (row[4] || '').toString().trim();  // E: Item_name (العمود 5)
-                        const rawPrice = row[6];  // G: Sale1 (العمود 7)
+                    items = json.slice(1).map((row) => {
+                        const name = (row[4] || '').toString().trim();
+                        const rawPrice = row[6];
                         const price = parsePrice(rawPrice);
-                        
-                        if (idx < 5 && name) {
-                            console.log(`الصف ${idx+2}: اسم="${name}", السعر الخام="${rawPrice}" (${typeof rawPrice}), السعر=${price}`);
-                        }
-                        
                         return { name, price };
                     }).filter(item => item.name && item.price > 0);
                     
-                    console.log(`✅ تم تحميل ${items.length} صنف بسعر صحيح`);
                     localStorage.setItem('itemsData', JSON.stringify(items));
-                    
-                    status.textContent = `✅ ${items.length} صنف محمل من "الاصناف"!`;
-                    status.className = 'success';
+                    updateStatus('');
                     document.getElementById('table').style.display = 'table';
                     renderTable(items);
                     
                 } catch (error) {
-                    console.error('خطأ في القراءة:', error);
-                    status.innerHTML = `❌ خطأ: ${error.message}<br>تأكد من وجود <strong>الاصناف.xlsx</strong> وورقة <strong>الاصناف</strong>`;
-                    status.className = 'error';
+                    console.error('خطأ:', error);
+                    updateStatus(`❌ خطأ في القراءة: ${error.message}`, 'error');
                 }
             };
             
             oReq.onerror = function() {
-                status.innerHTML = `❌ فشل تحميل الاصناف.xlsx. ضعه في <strong>المجلد الرئيسي</strong>`;
-                status.className = 'error';
+                updateStatus('❌ فشل تحميل الاصناف.xlsx', 'error');
             };
             
             oReq.send();
@@ -157,14 +176,16 @@
 
         function renderTable(data) {
             const tbody = document.getElementById('tbody');
-            tbody.innerHTML = data.length ? 
-                data.map(item => 
-                    `<tr>
-                        <td>${item.name}</td>
-                        <td>${formatPrice(item.price)}</td>
-                    </tr>`
-                ).join('') : 
-                '<tr><td colspan="2" class="no-results">لا توجد أصناف بسعر صحيح</td></tr>';
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" class="no-results">لا توجد أصناف مطابقة</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map(item => 
+                `<tr>
+                    <td class="name-col">${item.name}</td>
+                    <td class="price-col">${formatPrice(item.price)}</td>
+                </tr>`
+            ).join('');
         }
 
         function filterItems() {
@@ -175,11 +196,9 @@
                     return words.every(word => item.name.toLowerCase().includes(word));
                 }) : items;
             renderTable(filtered);
-            document.getElementById('status').textContent = `${filtered.length} صنف`;
         }
 
         window.addEventListener('load', () => {
-            console.log('تحميل الاصناف.xlsx تلقائي...');
             loadItems();
         });
     </script>
