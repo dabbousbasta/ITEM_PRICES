@@ -28,6 +28,7 @@
             height: 50px; 
             width: auto; 
         }
+        #logo:not([src]) { display: none; }
         #search { 
             width: 70%; 
             padding: 12px 20px; 
@@ -46,6 +47,9 @@
             margin: 10px 0; 
             font-weight: bold; 
             color: #666; 
+            padding: 10px; 
+            background: white; 
+            border-radius: 10px; 
         }
         table { 
             width: 100%; 
@@ -54,24 +58,30 @@
             overflow: hidden; 
             box-shadow: 0 8px 30px rgba(0,0,0,0.15); 
             border-collapse: collapse; 
+            display: block; 
+            overflow-x: auto; 
+            white-space: nowrap; 
         }
         th, td { 
             padding: 15px 12px; 
             text-align: right; 
             font-size: 15px; 
+            min-width: 150px; 
         }
         th { 
             background: linear-gradient(135deg, #4CAF50, #45a049); 
             color: white; 
             font-weight: bold; 
+            position: sticky; 
+            top: 0; 
+            z-index: 10; 
         }
         tr:nth-child(even) { background: #f8f9fa; }
         tr:hover { background: #e8f5e8; transform: scale(1.01); transition: 0.2s; }
         @media (max-width: 768px) { 
-            .header { flex-direction: column; gap: 15px; }
+            .header { flex-direction: column; gap: 15px; text-align: center; }
             #search { width: 100%; }
-            table { font-size: 14px; }
-            th, td { padding: 12px 8px; }
+            th, td { padding: 12px 8px; font-size: 14px; min-width: 120px; }
         }
         .no-results { 
             text-align: center; 
@@ -79,14 +89,16 @@
             color: #999; 
             font-size: 18px; 
         }
+        .error { color: #f44336 !important; }
+        .success { color: #4CAF50 !important; }
     </style>
 </head>
 <body>
     <div class="header">
-        <img id="logo" src="LOGO.PNG" alt="دبوس البسطة" onerror="this.style.display='none';">
-        <input type="text" id="search" placeholder="اكتب جزء من اسم الصنف للبحث... (أي ترتيب)" oninput="filterItems()">
+        <img id="logo" src="LOGO.PNG" alt="دبوس البسطة" onerror="console.log('Logo not found'); this.src=''; this.alt='';">
+        <input type="text" id="search" placeholder="اكتب جزء من اسم الصنف... (أي ترتيب أو كلمات متعددة)" oninput="filterItems()">
     </div>
-    <div id="status">جاري تحميل البيانات...</div>
+    <div id="status">جاري تحميل ITEMS.xlsx...</div>
     <table id="table">
         <thead>
             <tr>
@@ -99,41 +111,86 @@
 
     <script>
         let items = [];
+        let originalItems = [];
 
         async function loadItems() {
+            const status = document.getElementById('status');
+            status.textContent = 'جاري تحميل ITEMS.xlsx...';
+            status.className = '';
+            
             try {
-                const response = await fetch('ITEMS.xlsx');
-                if (!response.ok) throw new Error('الملف غير موجود');
-                const data = await response.arrayBuffer();
-                const workbook = XLSX.read(data, { type: 'array' });
+                // جرب ITEMS.xlsx أولاً، ثم ITEMS
+                let response = await fetch('ITEMS.xlsx');
+                let data;
+                if (!response.ok) {
+                    console.log('ITEMS.xlsx not found, trying ITEMS');
+                    response = await fetch('ITEMS');
+                    if (!response.ok) throw new Error('الملف ITEMS.xlsx أو ITEMS غير موجود في المجلد الرئيسي');
+                    data = await response.arrayBuffer();
+                } else {
+                    data = await response.arrayBuffer();
+                }
+                
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const sheetNames = workbook.SheetNames;
+                console.log('Sheets:', sheetNames);
+                
+                if (!sheetNames.includes('ITEMS')) {
+                    throw new Error(`الورقة ITEMS غير موجودة. الورقات المتوفرة: ${sheetNames.join(', ')}`);
+                }
+                
                 const sheet = workbook.Sheets['ITEMS'];
-                const json = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false, header: 1 });
+                const json = XLSX.utils.sheet_to_json(sheet, { 
+                    defval: '', 
+                    raw: false, 
+                    header: 1,
+                    blankrows: false 
+                });
                 
-                items = json.slice(1).map(row => ({
-                    name: row[4] || '',  // عمود E (index 4)
-                    price: row[6] || '0'  // عمود G (index 6)
-                })).filter(item => item.name.trim());
+                console.log('Raw data rows:', json.length);
+                console.log('First row (headers):', json[0]);
+                if (json.length > 1) console.log('Sample data:', json[1].slice(0,10));
                 
-                document.getElementById('status').textContent = `✅ ${items.length} صنف جاهز!`;
+                // ابدأ من الصف 2 (index 1)، عمود E=4, G=6
+                originalItems = json.slice(1).map((row, idx) => {
+                    const name = (row[4] || '').toString().trim();
+                    const price = (row[6] || '').toString().trim();
+                    if (name) console.log(`Row ${idx+2}: Name="${name}", Price="${price}"`);
+                    return {
+                        name: name,
+                        price: parseFloat(price) || 0
+                    };
+                }).filter(item => item.name);
+                
+                items = [...originalItems];
+                
+                status.textContent = `✅ ${items.length} صنف محمل بنجاح!`;
+                status.className = 'success';
                 renderTable(items);
+                
             } catch (error) {
-                document.getElementById('status').innerHTML = '❌ خطأ في تحميل ITEMS.xlsx: ' + error.message;
+                console.error('Load error:', error);
+                status.innerHTML = `❌ خطأ: ${error.message}<br>تأكد من وجود <strong>ITEMS.xlsx</strong> أو <strong>ITEMS</strong> في نفس المجلد`;
+                status.className = 'error';
                 document.getElementById('table').style.display = 'none';
             }
         }
 
         function renderTable(data) {
             const tbody = document.getElementById('tbody');
+            const status = document.getElementById('status');
             tbody.innerHTML = '';
             if (data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="2" class="no-results">لا توجد أصناف مطابقة</td></tr>';
+                status.textContent = 'لا توجد نتائج';
                 return;
             }
+            status.textContent = `${data.length} صنف`;
             data.forEach(item => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${item.name}</td>
-                    <td>${parseFloat(item.price).toLocaleString('ar-LB')} ل.ل</td>
+                    <td>${item.name || ''}</td>
+                    <td>${item.price ? item.price.toLocaleString('ar-LB') + ' ل.ل' : 'غير محدد'}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -142,17 +199,23 @@
         function filterItems() {
             const query = document.getElementById('search').value.trim().toLowerCase();
             if (!query) {
-                renderTable(items);
+                renderTable(originalItems);
                 return;
             }
-            const words = query.split(/\s+/).filter(w => w);
-            const filtered = items.filter(item => 
-                words.every(word => item.name.toLowerCase().includes(word))
+            const words = query.split(/\s+/).filter(w => w.length > 0);
+            const filtered = originalItems.filter(item => 
+                words.every(word => 
+                    item.name.toLowerCase().includes(word)
+                )
             );
             renderTable(filtered);
         }
 
-        window.addEventListener('load', loadItems);
+        // تحميل عند فتح الصفحة
+        window.addEventListener('load', () => {
+            console.log('Page loaded, starting...');
+            setTimeout(loadItems, 500);  // تأخير بسيط للشبكة
+        });
     </script>
 </body>
 </html>
