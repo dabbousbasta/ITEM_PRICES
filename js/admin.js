@@ -730,10 +730,9 @@ async function loadInitialAdminItems() {
       'تعذر تحميل الأصناف حالياً. حدّث الصفحة وحاول مرة أخرى.',
       'error'
     );
-  } finally {
-    elements.loading?.setAttribute('hidden', '');
-    elements.content?.removeAttribute('hidden');
-  }
+} finally {
+  elements.loading?.setAttribute('hidden', '');
+  elements.content?.removeAttribute('hidden');
 }
 
 async function searchAdminItems(searchValue) {
@@ -1192,19 +1191,25 @@ function bindAdminEvents() {
 }
 
 async function initializeAdminPage() {
+  const elements = getAdminElements();
+
+  bindAdminEvents();
+
+  window.setTimeout(() => {
+    elements.loading?.setAttribute('hidden', '');
+    elements.content?.removeAttribute('hidden');
+  }, 700);
+
   adminProfile = await requireAdmin();
 
   if (!adminProfile) {
     return;
   }
 
-  const elements = getAdminElements();
-
   if (elements.email) {
     elements.email.textContent = adminProfile.email || 'مدير النظام';
   }
 
-  bindAdminEvents();
   await loadInitialAdminItems();
 }
 
