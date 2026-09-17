@@ -35,10 +35,7 @@ function parseOptionalPrice(value) {
   const textValue = String(value ?? '').trim().replace(',', '.');
 
   if (textValue === '') {
-    return {
-      valid: true,
-      price: null
-    };
+    return { valid: true, price: null };
   }
 
   const price = Number(textValue);
@@ -56,38 +53,15 @@ function parseOptionalPrice(value) {
   };
 }
 
-function parseRequiredPrice(value) {
-  const result = parseOptionalPrice(value);
-
-  if (!result.valid) {
-    return result;
-  }
-
-  if (result.price === null) {
-    return {
-      valid: false,
-      message: 'يرجى إدخال سعر صحيح.'
-    };
-  }
-
-  return result;
-}
-
 function validateItemData(nameValue, priceValue) {
   const name = String(nameValue ?? '').trim();
 
   if (!name) {
-    return {
-      valid: false,
-      message: 'يرجى إدخال اسم الصنف.'
-    };
+    return { valid: false, message: 'يرجى إدخال اسم الصنف.' };
   }
 
   if (name.length > 200) {
-    return {
-      valid: false,
-      message: 'اسم الصنف طويل جداً. الحد الأقصى هو 200 حرف.'
-    };
+    return { valid: false, message: 'اسم الصنف طويل جداً. الحد الأقصى هو 200 حرف.' };
   }
 
   const priceResult = parseOptionalPrice(priceValue);
@@ -96,11 +70,7 @@ function validateItemData(nameValue, priceValue) {
     return priceResult;
   }
 
-  return {
-    valid: true,
-    name,
-    price: priceResult.price
-  };
+  return { valid: true, name, price: priceResult.price };
 }
 
 function revokePreviewUrl(imageElement) {
@@ -112,25 +82,18 @@ function revokePreviewUrl(imageElement) {
 
 function clearAddImagePreview() {
   const elements = getAdminElements();
-
   revokePreviewUrl(elements.addPreviewImage);
-
-  if (elements.addPreviewImage) {
-    elements.addPreviewImage.removeAttribute('src');
-  }
+  elements.addPreviewImage?.removeAttribute('src');
 
   if (elements.addPreviewText) {
     elements.addPreviewText.textContent = '';
   }
 
-  if (elements.addPreviewWrap) {
-    elements.addPreviewWrap.classList.remove('is-visible');
-  }
+  elements.addPreviewWrap?.classList.remove('is-visible');
 }
 
 function showAddImagePreview(file) {
   const elements = getAdminElements();
-
   clearAddImagePreview();
 
   if (!file) {
@@ -148,9 +111,7 @@ function showAddImagePreview(file) {
     elements.addPreviewText.textContent = `${file.name} — ${(file.size / 1024 / 1024).toFixed(2)} MB`;
   }
 
-  if (elements.addPreviewWrap) {
-    elements.addPreviewWrap.classList.add('is-visible');
-  }
+  elements.addPreviewWrap?.classList.add('is-visible');
 }
 
 async function uploadItemImage(file) {
@@ -201,6 +162,17 @@ function createAdminPriceCell(item) {
   return priceCell;
 }
 
+function createIconAction(className, label, title, clickHandler, disabled = false) {
+  const button = document.createElement('button');
+  button.className = `table-action ${className}`;
+  button.type = 'button';
+  button.setAttribute('aria-label', label);
+  button.title = title;
+  button.disabled = disabled;
+  button.addEventListener('click', clickHandler);
+  return button;
+}
+
 function createAdminRow(item) {
   const row = document.createElement('tr');
 
@@ -214,8 +186,6 @@ function createAdminRow(item) {
   nameText.textContent = item.name;
   nameCell.appendChild(nameText);
 
-  const priceCell = createAdminPriceCell(item);
-
   const dateCell = document.createElement('td');
   dateCell.className = 'cell-date';
   dateCell.textContent = formatDate(item.created_at);
@@ -226,97 +196,33 @@ function createAdminRow(item) {
   const actions = document.createElement('div');
   actions.className = 'actions-row';
 
-  if (item.price === null || item.price === undefined) {
-    const setPriceButton = document.createElement('button');
-    setPriceButton.className = 'table-action table-action-price';
-    setPriceButton.type = 'button';
-    setPriceButton.textContent = 'وضع سعر';
-    setPriceButton.addEventListener('click', () => openSetPriceRow(item.id));
-    actions.appendChild(setPriceButton);
-  }
+  const editButton = createIconAction(
+    'table-action-edit',
+    'تعديل الصنف',
+    'تعديل الاسم أو السعر أو الصورة',
+    () => openEditRow(item.id)
+  );
 
-  const editButton = document.createElement('button');
-  editButton.className = 'table-action table-action-edit';
-  editButton.type = 'button';
-  editButton.textContent = 'تعديل';
-  editButton.addEventListener('click', () => openEditRow(item.id));
+  const deleteImageButton = createIconAction(
+    'table-action-image',
+    'حذف الصورة',
+    item.image_path ? 'حذف صورة الصنف' : 'لا توجد صورة لهذا الصنف',
+    () => handleDeleteImage(item.id),
+    !item.image_path
+  );
 
-  const deleteImageButton = document.createElement('button');
-  deleteImageButton.className = 'table-action table-action-image';
-  deleteImageButton.type = 'button';
-  deleteImageButton.textContent = 'حذف الصورة';
-  deleteImageButton.disabled = !item.image_path;
-  deleteImageButton.title = item.image_path
-    ? 'حذف صورة الصنف فقط'
-    : 'لا توجد صورة لهذا الصنف';
-  deleteImageButton.addEventListener('click', () => handleDeleteImage(item.id));
-
-  const deleteButton = document.createElement('button');
-  deleteButton.className = 'table-action table-action-delete';
-  deleteButton.type = 'button';
-  deleteButton.textContent = 'حذف';
-  deleteButton.addEventListener('click', () => openDeleteModal(item.id));
+  const deleteButton = createIconAction(
+    'table-action-delete',
+    'حذف الصنف',
+    'حذف الصنف',
+    () => openDeleteModal(item.id)
+  );
 
   actions.append(editButton, deleteImageButton, deleteButton);
   actionsCell.appendChild(actions);
 
-  row.append(imageCell, nameCell, priceCell, dateCell, actionsCell);
-
+  row.append(imageCell, nameCell, createAdminPriceCell(item), dateCell, actionsCell);
   return row;
-}
-
-function createSetPriceRow(item) {
-  const setPriceRow = document.createElement('tr');
-  setPriceRow.className = 'edit-row';
-
-  const cell = document.createElement('td');
-  cell.colSpan = 5;
-
-  const form = document.createElement('form');
-  form.className = 'set-price-form';
-  form.noValidate = true;
-
-  const title = document.createElement('strong');
-  title.className = 'set-price-title';
-  title.textContent = `وضع سعر للصنف: ${item.name}`;
-
-  const priceInput = document.createElement('input');
-  priceInput.className = 'set-price-input';
-  priceInput.type = 'number';
-  priceInput.min = '0';
-  priceInput.max = '9999999999.99';
-  priceInput.step = '0.01';
-  priceInput.inputMode = 'decimal';
-  priceInput.placeholder = 'مثال: 1.50';
-  priceInput.required = true;
-  priceInput.setAttribute('aria-label', `سعر الصنف ${item.name}`);
-
-  const saveButton = document.createElement('button');
-  saveButton.className = 'button button-primary';
-  saveButton.type = 'submit';
-  saveButton.textContent = 'حفظ السعر';
-
-  const cancelButton = document.createElement('button');
-  cancelButton.className = 'button button-secondary';
-  cancelButton.type = 'button';
-  cancelButton.textContent = 'إلغاء';
-  cancelButton.addEventListener('click', renderAdminItems);
-
-  const message = document.createElement('p');
-  message.className = 'form-message';
-  message.setAttribute('role', 'alert');
-  message.setAttribute('aria-live', 'polite');
-
-  form.append(title, priceInput, saveButton, cancelButton, message);
-
-  form.addEventListener('submit', (event) => {
-    handleSetPriceSubmit(event, item.id, priceInput, message, saveButton);
-  });
-
-  cell.appendChild(form);
-  setPriceRow.appendChild(cell);
-
-  return setPriceRow;
 }
 
 function createEditRow(item) {
@@ -398,19 +304,18 @@ function createEditRow(item) {
   cancelButton.addEventListener('click', renderAdminItems);
 
   actions.append(saveButton, cancelButton);
-
   form.append(nameGroup, priceGroup, imageGroup, message, actions);
+
   form.addEventListener('submit', (event) => {
     handleEditItemSubmit(event, item.id, imageInput, nameInput, priceInput, message, saveButton);
   });
 
   cell.appendChild(form);
   editRow.appendChild(cell);
-
   return editRow;
 }
 
-function renderAdminItems(openRow = null) {
+function renderAdminItems(editItemId = null) {
   const elements = getAdminElements();
 
   if (!elements.searchInput || !elements.tableBody || !elements.count || !elements.empty) {
@@ -418,17 +323,12 @@ function renderAdminItems(openRow = null) {
   }
 
   const matchingItems = filterItemsBySearch(adminItems, elements.searchInput.value);
-
   elements.tableBody.replaceChildren();
 
   matchingItems.forEach((item) => {
     elements.tableBody.appendChild(createAdminRow(item));
 
-    if (openRow?.type === 'price' && item.id === openRow.itemId) {
-      elements.tableBody.appendChild(createSetPriceRow(item));
-    }
-
-    if (openRow?.type === 'edit' && item.id === openRow.itemId) {
+    if (item.id === editItemId) {
       elements.tableBody.appendChild(createEditRow(item));
     }
   });
@@ -437,17 +337,8 @@ function renderAdminItems(openRow = null) {
   elements.empty.hidden = matchingItems.length !== 0;
 }
 
-function openSetPriceRow(itemId) {
-  renderAdminItems({ type: 'price', itemId });
-
-  window.setTimeout(() => {
-    const input = document.querySelector('.set-price-input');
-    input?.focus();
-  }, 0);
-}
-
 function openEditRow(itemId) {
-  renderAdminItems({ type: 'edit', itemId });
+  renderAdminItems(itemId);
 
   window.setTimeout(() => {
     const editInput = document.querySelector(`#edit-name-${CSS.escape(itemId)}`);
@@ -514,7 +405,6 @@ async function handleAddItemSubmit(event) {
   }
 
   setButtonLoading(elements.addButton, true, 'جارٍ إضافة الصنف...');
-
   let uploadedImagePath = null;
 
   try {
@@ -540,19 +430,16 @@ async function handleAddItemSubmit(event) {
 
     adminItems.push(data);
     adminItems.sort((firstItem, secondItem) => firstItem.name.localeCompare(secondItem.name, 'ar'));
-
     elements.addForm.reset();
     clearAddImagePreview();
 
-    if (validation.price === null) {
-      setMessage(
-        elements.addMessage,
-        'تمت إضافة الصنف بدون سعر. سيظهر في لوحة الإدارة فقط إلى أن تضع له سعراً.',
-        'success'
-      );
-    } else {
-      setMessage(elements.addMessage, 'تمت إضافة الصنف بنجاح.', 'success');
-    }
+    setMessage(
+      elements.addMessage,
+      validation.price === null
+        ? 'تمت إضافة الصنف بدون سعر. سيظهر في لوحة الإدارة فقط إلى أن تضع له سعراً.'
+        : 'تمت إضافة الصنف بنجاح.',
+      'success'
+    );
 
     renderAdminItems();
   } catch (error) {
@@ -576,57 +463,6 @@ async function handleAddItemSubmit(event) {
   }
 }
 
-async function handleSetPriceSubmit(event, itemId, priceInput, messageElement, saveButton) {
-  event.preventDefault();
-
-  const itemIndex = adminItems.findIndex((item) => item.id === itemId);
-
-  if (itemIndex === -1) {
-    setMessage(messageElement, 'لم يتم العثور على الصنف. حدّث الصفحة.', 'error');
-    return;
-  }
-
-  const priceResult = parseRequiredPrice(priceInput.value);
-
-  if (!priceResult.valid) {
-    setMessage(messageElement, priceResult.message, 'error');
-    return;
-  }
-
-  setMessage(messageElement);
-  setButtonLoading(saveButton, true, 'جارٍ حفظ السعر...');
-
-  try {
-    const { data, error } = await supabaseClient
-      .from('items')
-      .update({
-        price: priceResult.price,
-        updated_by: adminProfile.id
-      })
-      .eq('id', itemId)
-      .select('id, name, price, image_path, created_at, updated_at')
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    adminItems[itemIndex] = data;
-    adminItems.sort((firstItem, secondItem) => firstItem.name.localeCompare(secondItem.name, 'ar'));
-    renderAdminItems();
-    setMessage(
-      getAdminElements().listMessage,
-      'تم حفظ السعر. سيظهر الصنف في صفحة الأسعار بعد تحديثها.',
-      'success'
-    );
-  } catch (error) {
-    console.error('Failed to set price:', error);
-    setMessage(messageElement, 'تعذر حفظ السعر. حاول مرة أخرى.', 'error');
-  } finally {
-    setButtonLoading(saveButton, false);
-  }
-}
-
 async function handleEditItemSubmit(
   event,
   itemId,
@@ -647,7 +483,6 @@ async function handleEditItemSubmit(
 
   const previousItem = adminItems[itemIndex];
   const validation = validateItemData(nameInput.value, priceInput.value);
-
   setMessage(messageElement);
 
   if (!validation.valid) {
@@ -664,7 +499,6 @@ async function handleEditItemSubmit(
   }
 
   setButtonLoading(saveButton, true, 'جارٍ حفظ التعديل...');
-
   let newImagePath = null;
 
   try {
@@ -705,16 +539,13 @@ async function handleEditItemSubmit(
     }
 
     renderAdminItems();
-
-    if (data.price === null) {
-      setMessage(
-        getAdminElements().listMessage,
-        'تم حفظ التعديل. الصنف غير مسعّر ولن يظهر في صفحة الأسعار حتى تضع له سعراً.',
-        'success'
-      );
-    } else {
-      setMessage(getAdminElements().listMessage, 'تم حفظ التعديل بنجاح.', 'success');
-    }
+    setMessage(
+      getAdminElements().listMessage,
+      data.price === null
+        ? 'تم حفظ التعديل. الصنف غير مسعّر ولن يظهر في صفحة الأسعار حتى تضع له سعراً.'
+        : 'تم حفظ التعديل بنجاح.',
+      'success'
+    );
   } catch (error) {
     console.error('Failed to edit item:', error);
 
@@ -753,7 +584,6 @@ function openDeleteModal(itemId) {
 
 function closeDeleteModal() {
   const elements = getAdminElements();
-
   itemPendingDeletion = null;
   elements.deleteBackdrop?.classList.remove('is-open');
   elements.deleteBackdrop?.setAttribute('aria-hidden', 'true');
@@ -783,7 +613,6 @@ async function handleConfirmDeleteItem() {
     adminItems = adminItems.filter((currentItem) => currentItem.id !== item.id);
     closeDeleteModal();
     renderAdminItems();
-
     setMessage(elements.listMessage, 'تم حذف الصنف بنجاح.', 'success');
 
     if (item.image_path) {
@@ -800,11 +629,7 @@ async function handleConfirmDeleteItem() {
     }
   } catch (error) {
     console.error('Failed to delete item:', error);
-    setMessage(
-      elements.listMessage,
-      'تعذر حذف الصنف. حاول مرة أخرى.',
-      'error'
-    );
+    setMessage(elements.listMessage, 'تعذر حذف الصنف. حاول مرة أخرى.', 'error');
   } finally {
     if (itemPendingDeletion) {
       setButtonLoading(elements.confirmDeleteButton, false);
@@ -863,11 +688,7 @@ async function handleDeleteImage(itemId) {
     }
   } catch (error) {
     console.error('Failed to remove image:', error);
-    setMessage(
-      elements.listMessage,
-      'تعذر حذف الصورة. حاول مرة أخرى.',
-      'error'
-    );
+    setMessage(elements.listMessage, 'تعذر حذف الصورة. حاول مرة أخرى.', 'error');
   }
 }
 
@@ -892,7 +713,6 @@ function bindAdminEvents() {
   });
 
   elements.searchInput?.addEventListener('input', () => renderAdminItems());
-
   elements.cancelDeleteButton?.addEventListener('click', closeDeleteModal);
   elements.confirmDeleteButton?.addEventListener('click', handleConfirmDeleteItem);
 
