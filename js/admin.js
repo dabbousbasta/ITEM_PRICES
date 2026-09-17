@@ -528,7 +528,7 @@ function renderAdminItems(editItemId = null) {
 
   const searchValue = elements.searchInput.value;
   const matchingItems = filterItemsBySearch(adminItems, searchValue);
-  const sortedItems = getSortedAdminItems(matchingItems);
+ const sortedItems = getSortedAdminItems(matchingItems).slice(0, 100);
 
   elements.tableBody.replaceChildren();
 
@@ -540,7 +540,9 @@ function renderAdminItems(editItemId = null) {
     }
   });
 
-  elements.count.textContent = `عدد الأصناف: ${sortedItems.length}`;
+elements.count.textContent = matchingItems.length > 100
+  ? `عدد النتائج: ${matchingItems.length} — يتم عرض أول 100 فقط`
+  : `عدد الأصناف: ${matchingItems.length}`;
   elements.empty.hidden = sortedItems.length !== 0;
 
   updateAdminSortHeaders();
@@ -564,7 +566,8 @@ async function loadAdminItems() {
     const { data, error } = await supabaseClient
       .from('items')
       .select('id, name, price, image_path, created_at, updated_at')
-      .order('name', { ascending: true });
+      .order('name', { ascending: true })
+      .range(0, 49);
 
     if (error) {
       throw error;
@@ -1074,6 +1077,33 @@ function handleAdminSearchKeydown(event) {
     closeAdminSuggestions();
   }
 }
+async function searchAdminItems(searchValue) {
+  const elements = getAdminElements();
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('items')
+      .select('id, name, price, image_path, created_at, updated_at')
+      .ilike('name', `%${searchValue}%`)
+      .order('name', { ascending: true })
+      .range(0, 99);
+
+    if (error) {
+      throw error;
+    }
+
+    adminItems = Array.isArray(data) ? data : [];
+    renderAdminItems();
+  } catch (error) {
+    console.error('Failed to search items:', error);
+
+    setMessage(
+      elements.listMessage,
+      'تعذر تنفيذ البحث حالياً. حاول مرة أخرى.',
+      'error'
+    );
+  }
+}
 function bindAdminEvents() {
   const elements = getAdminElements();
   const sortButtons = document.querySelectorAll('[data-sort-key]');
@@ -1095,9 +1125,23 @@ function bindAdminEvents() {
     showAddImagePreview(file);
   });
 
+let adminSearchTimer = null;
+
 elements.searchInput?.addEventListener('input', () => {
-  renderAdminItems();
-  renderAdminSuggestions();
+  clearTimeout(adminSearchTimer);
+
+  adminSearchTimer = setTimeout(async () => {
+    const searchValue = elements.searchInput.value.trim();
+
+    if (!searchValue) {
+      await loadAdminItems();
+      renderAdminSuggestions();
+      return;
+    }
+
+    await searchAdminItems(searchValue);
+    renderAdminSuggestions();
+  }, 250);
 });
 
 elements.searchInput?.addEventListener('keydown', handleAdminSearchKeydown);
