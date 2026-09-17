@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <meta
+    name="description"
+    content="لوحة إدارة الأصناف والأسعار - دبوس البسطة"
+  >
+  <title>لوحة إدارة الأصناف | دبوس البسطة</title>
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <main class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="index.html" aria-label="العودة إلى صفحة الأسعار">
+        <img
+          class="brand-logo"
+          src="logo.png"
+          alt="شعار دبوس البسطة"
+        >
+        <div>
+          <p class="brand-title">دبوس البسطة</p>
+          <p class="brand-subtitle">لوحة إدارة الأصناف</p>
+        </div>
+      </a>
+
+      <div class="header-actions">
+        <div class="user-summary">
+          <span>مرحباً بك</span>
+          <strong id="admin-email">جارٍ التحقق...</strong>
+          <span>نوع الحساب: Admin</span>
+        </div>
+
+        <a class="button button-secondary" href="index.html">
+          صفحة الأسعار
+        </a>
+
+        <button
+          id="logout-button"
+          class="button button-secondary"
+          type="button"
+        >
+          تسجيل الخروج
+        </button>
+      </div>
+    </header>
+
+    <section class="page-title-block" aria-labelledby="admin-page-title">
+      <h1 id="admin-page-title">لوحة إدارة الأصناف</h1>
+      <p>إضافة الأصناف وتعديل الأسماء والأسعار والصور.</p>
+    </section>
+
+    <section class="admin-grid">
+      <aside class="admin-form-card" aria-labelledby="add-item-title">
+        <div class="section-heading">
+          <h2 id="add-item-title">إضافة صنف جديد</h2>
+          <p>الصورة اختيارية ويمكن إضافتها لاحقاً.</p>
+        </div>
+
+        <form id="add-item-form" class="app-form" novalidate>
+          <div class="form-group">
+            <label for="add-item-name">اسم الصنف</label>
+            <input
+              id="add-item-name"
+              name="name"
+              type="text"
+              maxlength="200"
+              autocomplete="off"
+              placeholder="مثال: كوكا كولا 330 مل"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="add-item-price">السعر</label>
+            <input
+              id="add-item-price"
+              name="price"
+              type="number"
+              min="0"
+              max="9999999999.99"
+              step="0.01"
+              inputmode="decimal"
+              placeholder="مثال: 1.50"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="add-item-image">صورة الصنف <span aria-hidden="true">(اختيارية)</span></label>
+            <input
+              id="add-item-image"
+              class="file-input"
+              name="image"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+            >
+          </div>
+
+          <div id="add-image-preview-wrap" class="image-preview-wrap" aria-live="polite">
+            <img id="add-image-preview" class="image-preview" alt="معاينة الصورة المختارة">
+            <span id="add-image-preview-text" class="image-preview-text"></span>
+          </div>
+
+          <p
+            id="add-item-message"
+            class="form-message"
+            role="alert"
+            aria-live="polite"
+          ></p>
+
+          <button
+            id="add-item-button"
+            class="button button-primary button-full"
+            type="submit"
+          >
+            إضافة الصنف
+          </button>
+        </form>
+      </aside>
+
+      <section class="content-card admin-list-card" aria-labelledby="items-management-title">
+        <div class="section-heading">
+          <h2 id="items-management-title">قائمة الأصناف</h2>
+          <p>ابحث عن الصنف لتغيير اسمه أو سعره أو صورته.</p>
+        </div>
+
+        <div class="search-bar">
+          <span class="search-icon" aria-hidden="true">⌕</span>
+          <input
+            id="admin-items-search"
+            class="search-input"
+            type="search"
+            autocomplete="off"
+            placeholder="ابحث عن صنف... مثال: كوكا 330"
+            aria-label="ابحث عن صنف لإدارته"
+          >
+        </div>
+
+        <p
+          id="admin-list-message"
+          class="form-message"
+          role="alert"
+          aria-live="polite"
+        ></p>
+
+        <div id="admin-items-loading" class="loading-state">
+          <span class="loading-spinner" aria-hidden="true"></span>
+          جارٍ تحميل الأصناف...
+        </div>
+
+        <div id="admin-items-content" hidden>
+          <div class="table-info">
+            <span id="admin-items-count">عدد الأصناف: 0</span>
+            <span>نتائج البحث تتغير أثناء الكتابة</span>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th scope="col">الصورة</th>
+                  <th scope="col">اسم الصنف</th>
+                  <th scope="col">السعر</th>
+                  <th scope="col">تاريخ الإضافة</th>
+                  <th scope="col">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="admin-items-table-body"></tbody>
+            </table>
+          </div>
+
+          <div id="admin-items-empty" class="empty-state" hidden>
+            <strong>لا توجد نتائج</strong>
+            <span>جرّب كتابة كلمة أخرى أو غيّر ترتيب الكلمات.</span>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div
+    id="delete-modal-backdrop"
+    class="modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="delete-modal-title"
+    aria-hidden="true"
+  >
+    <section class="modal">
+      <h2 id="delete-modal-title">حذف الصنف</h2>
+      <p id="delete-modal-text">هل أنت متأكد من حذف هذا الصنف؟</p>
+      <div class="modal-actions">
+        <button id="confirm-delete-button" class="button button-danger" type="button">
+          نعم، حذف
+        </button>
+        <button id="cancel-delete-button" class="button button-secondary" type="button">
+          إلغاء
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

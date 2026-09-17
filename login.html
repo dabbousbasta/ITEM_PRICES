@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <meta
+    name="description"
+    content="تسجيل الدخول إلى نظام أسعار الأصناف - دبوس البسطة"
+  >
+  <title>تسجيل الدخول | دبوس البسطة</title>
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="auth-page">
+  <main class="auth-container">
+    <section class="auth-card" aria-labelledby="login-title">
+      <div class="brand auth-brand">
+        <img
+          class="brand-logo"
+          src="logo.png"
+          alt="شعار دبوس البسطة"
+        >
+        <div>
+          <h1 class="brand-title">دبوس البسطة</h1>
+          <p class="brand-subtitle">نظام أسعار الأصناف</p>
+        </div>
+      </div>
+
+      <div class="auth-heading">
+        <h2 id="login-title">تسجيل الدخول</h2>
+        <p>أدخل بريدك الإلكتروني وكلمة المرور للمتابعة.</p>
+      </div>
+
+      <form id="login-form" class="app-form" novalidate>
+        <div class="form-group">
+          <label for="email">البريد الإلكتروني</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            inputmode="email"
+            autocomplete="email"
+            placeholder="example@email.com"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="password">كلمة المرور</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="أدخل كلمة المرور"
+            required
+          >
+        </div>
+
+        <p
+          id="login-message"
+          class="form-message"
+          role="alert"
+          aria-live="polite"
+        ></p>
+
+        <button
+          id="login-button"
+          class="button button-primary button-full"
+          type="submit"
+        >
+          تسجيل الدخول
+        </button>
+      </form>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

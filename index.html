@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <meta
+    name="description"
+    content="أسعار الأصناف - دبوس البسطة"
+  >
+  <title>أسعار الأصناف | دبوس البسطة</title>
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <main class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="index.html" aria-label="العودة إلى صفحة أسعار الأصناف">
+        <img
+          class="brand-logo"
+          src="logo.png"
+          alt="شعار دبوس البسطة"
+        >
+        <div>
+          <p class="brand-title">دبوس البسطة</p>
+          <p class="brand-subtitle">نظام أسعار الأصناف</p>
+        </div>
+      </a>
+
+      <div class="header-actions">
+        <div class="user-summary">
+          <span>مرحباً بك</span>
+          <strong id="viewer-email">جارٍ التحقق...</strong>
+          <span id="viewer-role">—</span>
+        </div>
+
+        <a
+          id="admin-link"
+          class="button button-secondary"
+          href="admin.html"
+          hidden
+        >
+          لوحة الإدارة
+        </a>
+
+        <button
+          id="logout-button"
+          class="button button-secondary"
+          type="button"
+        >
+          تسجيل الخروج
+        </button>
+      </div>
+    </header>
+
+    <section class="page-title-block" aria-labelledby="page-title">
+      <h1 id="page-title">أسعار الأصناف</h1>
+      <p>ابحث عن اسم الصنف، ويمكنك كتابة الكلمات بأي ترتيب.</p>
+    </section>
+
+    <section class="content-card" aria-label="قائمة أسعار الأصناف">
+      <div class="search-bar">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input
+          id="items-search"
+          class="search-input"
+          type="search"
+          autocomplete="off"
+          placeholder="ابحث عن صنف... مثال: كوكا 330"
+          aria-label="ابحث عن صنف"
+        >
+      </div>
+
+      <p
+        id="viewer-message"
+        class="form-message"
+        role="alert"
+        aria-live="polite"
+      ></p>
+
+      <div id="items-loading" class="loading-state">
+        <span class="loading-spinner" aria-hidden="true"></span>
+        جارٍ تحميل الأصناف...
+      </div>
+
+      <div id="items-content" hidden>
+        <div class="table-info">
+          <span id="items-count">عدد الأصناف: 0</span>
+          <span>اكتب كلمة أو أكثر للبحث</span>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th scope="col">الصورة</th>
+                <th scope="col">اسم الصنف</th>
+                <th scope="col">السعر</th>
+              </tr>
+            </thead>
+            <tbody id="items-table-body"></tbody>
+          </table>
+        </div>
+
+        <div id="items-empty" class="empty-state" hidden>
+          <strong>لا توجد نتائج</strong>
+          <span>جرّب كتابة كلمة أخرى أو غيّر ترتيب الكلمات.</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/viewer.js"></script>
+</body>
+</html>
