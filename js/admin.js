@@ -6,6 +6,10 @@ let itemPendingDeletion = null;
 
 let adminSortKey = 'name';
 let adminSortDirection = 'asc';
+let adminSuggestionItems = [];
+let adminActiveSuggestionIndex = -1;
+
+const MAX_SEARCH_SUGGESTIONS = 8;
 
 function getAdminElements() {
   return {
@@ -921,7 +925,155 @@ async function handleDeleteImage(itemId) {
     );
   }
 }
+function closeAdminSuggestions() {
+  const searchInput = document.querySelector('#admin-items-search');
+  const suggestionsElement = document.querySelector('#admin-suggestions');
 
+  adminSuggestionItems = [];
+  adminActiveSuggestionIndex = -1;
+
+  if (suggestionsElement) {
+    suggestionsElement.replaceChildren();
+    suggestionsElement.hidden = true;
+  }
+
+  searchInput?.setAttribute('aria-expanded', 'false');
+  searchInput?.removeAttribute('aria-activedescendant');
+}
+
+function selectAdminSuggestion(item) {
+  const searchInput = document.querySelector('#admin-items-search');
+
+  if (!searchInput) {
+    return;
+  }
+
+  searchInput.value = item.name;
+  closeAdminSuggestions();
+  renderAdminItems();
+  searchInput.focus();
+}
+
+function renderAdminSuggestions() {
+  const searchInput = document.querySelector('#admin-items-search');
+  const suggestionsElement = document.querySelector('#admin-suggestions');
+
+  if (!searchInput || !suggestionsElement) {
+    return;
+  }
+
+  const searchValue = searchInput.value.trim();
+
+  if (!searchValue) {
+    closeAdminSuggestions();
+    return;
+  }
+
+  adminSuggestionItems = filterItemsBySearch(adminItems, searchValue)
+    .slice(0, MAX_SEARCH_SUGGESTIONS);
+
+  adminActiveSuggestionIndex = -1;
+  suggestionsElement.replaceChildren();
+
+  if (adminSuggestionItems.length === 0) {
+    suggestionsElement.hidden = true;
+    searchInput.setAttribute('aria-expanded', 'false');
+    return;
+  }
+
+  adminSuggestionItems.forEach((item, index) => {
+    const suggestion = document.createElement('button');
+
+    suggestion.id = `admin-suggestion-${index}`;
+    suggestion.className = 'search-suggestion';
+    suggestion.type = 'button';
+    suggestion.setAttribute('role', 'option');
+    suggestion.setAttribute('aria-selected', 'false');
+    suggestion.appendChild(createHighlightedItemName(item.name, searchValue));
+
+    suggestion.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      selectAdminSuggestion(item);
+    });
+
+    suggestionsElement.appendChild(suggestion);
+  });
+
+  suggestionsElement.hidden = false;
+  searchInput.setAttribute('aria-expanded', 'true');
+}
+
+function updateAdminActiveSuggestion() {
+  const searchInput = document.querySelector('#admin-items-search');
+  const suggestionsElement = document.querySelector('#admin-suggestions');
+
+  if (!searchInput || !suggestionsElement) {
+    return;
+  }
+
+  const options = suggestionsElement.querySelectorAll('.search-suggestion');
+
+  options.forEach((option, index) => {
+    const isActive = index === adminActiveSuggestionIndex;
+
+    option.classList.toggle('is-active', isActive);
+    option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+
+    if (isActive) {
+      searchInput.setAttribute('aria-activedescendant', option.id);
+      option.scrollIntoView({ block: 'nearest' });
+    }
+  });
+
+  if (adminActiveSuggestionIndex === -1) {
+    searchInput.removeAttribute('aria-activedescendant');
+  }
+}
+
+function handleAdminSearchKeydown(event) {
+  const suggestionsElement = document.querySelector('#admin-suggestions');
+  const isOpen = suggestionsElement && !suggestionsElement.hidden;
+
+  if (!isOpen || adminSuggestionItems.length === 0) {
+    if (event.key === 'Escape') {
+      closeAdminSuggestions();
+    }
+
+    return;
+  }
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+
+    adminActiveSuggestionIndex =
+      (adminActiveSuggestionIndex + 1) % adminSuggestionItems.length;
+
+    updateAdminActiveSuggestion();
+    return;
+  }
+
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+
+    adminActiveSuggestionIndex =
+      (adminActiveSuggestionIndex - 1 + adminSuggestionItems.length)
+      % adminSuggestionItems.length;
+
+    updateAdminActiveSuggestion();
+    return;
+  }
+
+  if (event.key === 'Enter' && adminActiveSuggestionIndex >= 0) {
+    event.preventDefault();
+    selectAdminSuggestion(adminSuggestionItems[adminActiveSuggestionIndex]);
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeAdminSuggestions();
+  }
+}
 function bindAdminEvents() {
   const elements = getAdminElements();
   const sortButtons = document.querySelectorAll('[data-sort-key]');
@@ -943,7 +1095,20 @@ function bindAdminEvents() {
     showAddImagePreview(file);
   });
 
-  elements.searchInput?.addEventListener('input', () => renderAdminItems());
+elements.searchInput?.addEventListener('input', () => {
+  renderAdminItems();
+  renderAdminSuggestions();
+});
+
+elements.searchInput?.addEventListener('keydown', handleAdminSearchKeydown);
+
+elements.searchInput?.addEventListener('focus', () => {
+  renderAdminSuggestions();
+});
+
+elements.searchInput?.addEventListener('blur', () => {
+  window.setTimeout(closeAdminSuggestions, 150);
+});
 
   sortButtons.forEach((button) => {
     button.addEventListener('click', () => {
