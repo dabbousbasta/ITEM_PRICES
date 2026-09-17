@@ -130,17 +130,30 @@
           <p>ابحث عن الصنف لتغيير اسمه أو سعره أو صورته.</p>
         </div>
 
-        <div class="search-bar">
-          <span class="search-icon" aria-hidden="true">⌕</span>
-          <input
-            id="admin-items-search"
-            class="search-input"
-            type="search"
-            autocomplete="off"
-            placeholder="ابحث عن صنف... مثال: قسطل تلحيم 25"
-            aria-label="ابحث عن صنف لإدارته"
-          >
-        </div>
+       <div class="search-bar">
+  <span class="search-icon" aria-hidden="true">⌕</span>
+
+  <input
+    id="admin-items-search"
+    class="search-input"
+    type="search"
+    autocomplete="off"
+    placeholder="ابحث عن صنف... مثال: قسطل تلحيم 25"
+    aria-label="ابحث عن صنف لإدارته"
+    role="combobox"
+    aria-autocomplete="list"
+    aria-expanded="false"
+    aria-controls="admin-suggestions"
+  >
+
+  <div
+    id="admin-suggestions"
+    class="search-suggestions"
+    role="listbox"
+    aria-label="اقتراحات الأصناف"
+    hidden
+  ></div>
+</div>
 
         <p
           id="admin-list-message"
