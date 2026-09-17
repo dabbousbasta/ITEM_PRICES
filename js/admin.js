@@ -6,9 +6,13 @@ let itemPendingDeletion = null;
 
 let adminSortKey = 'name';
 let adminSortDirection = 'asc';
+
 let adminSuggestionItems = [];
 let adminActiveSuggestionIndex = -1;
+let adminSearchTimer = null;
 
+const INITIAL_ITEMS_LIMIT = 50;
+const SEARCH_RESULTS_LIMIT = 100;
 const MAX_SEARCH_SUGGESTIONS = 8;
 
 function getAdminElements() {
@@ -23,6 +27,7 @@ function getAdminElements() {
     addMessage: document.querySelector('#add-item-message'),
     addButton: document.querySelector('#add-item-button'),
     searchInput: document.querySelector('#admin-items-search'),
+    suggestions: document.querySelector('#admin-suggestions'),
     listMessage: document.querySelector('#admin-list-message'),
     loading: document.querySelector('#admin-items-loading'),
     content: document.querySelector('#admin-items-content'),
@@ -455,7 +460,7 @@ function createEditRow(item) {
   cancelButton.className = 'button button-secondary';
   cancelButton.type = 'button';
   cancelButton.textContent = 'إلغاء';
-  cancelButton.addEventListener('click', renderAdminItems);
+  cancelButton.addEventListener('click', () => renderAdminItems());
 
   actions.append(saveButton, cancelButton);
   form.append(nameGroup, priceGroup, imageGroup, message, actions);
@@ -527,8 +532,7 @@ function renderAdminItems(editItemId = null) {
   }
 
   const searchValue = elements.searchInput.value;
-  const matchingItems = filterItemsBySearch(adminItems, searchValue);
- const sortedItems = getSortedAdminItems(matchingItems).slice(0, 100);
+  const sortedItems = getSortedAdminItems(adminItems);
 
   elements.tableBody.replaceChildren();
 
@@ -540,9 +544,7 @@ function renderAdminItems(editItemId = null) {
     }
   });
 
-elements.count.textContent = matchingItems.length > 100
-  ? `عدد النتائج: ${matchingItems.length} — يتم عرض أول 100 فقط`
-  : `عدد الأصناف: ${matchingItems.length}`;
+  elements.count.textContent = `عدد النتائج: ${sortedItems.length}`;
   elements.empty.hidden = sortedItems.length !== 0;
 
   updateAdminSortHeaders();
@@ -557,17 +559,162 @@ function openEditRow(itemId) {
   }, 0);
 }
 
-async function loadAdminItems() {
+function closeAdminSuggestions() {
   const elements = getAdminElements();
 
-  setMessage(elements.listMessage);
+  adminSuggestionItems = [];
+  adminActiveSuggestionIndex = -1;
+
+  if (elements.suggestions) {
+    elements.suggestions.replaceChildren();
+    elements.suggestions.hidden = true;
+  }
+
+  elements.searchInput?.setAttribute('aria-expanded', 'false');
+  elements.searchInput?.removeAttribute('aria-activedescendant');
+}
+
+function selectAdminSuggestion(item) {
+  const elements = getAdminElements();
+
+  if (!elements.searchInput) {
+    return;
+  }
+
+  elements.searchInput.value = item.name;
+  closeAdminSuggestions();
+
+  adminItems = [item];
+  renderAdminItems();
+  elements.searchInput.focus();
+}
+
+function renderAdminSuggestions() {
+  const elements = getAdminElements();
+
+  if (!elements.searchInput || !elements.suggestions) {
+    return;
+  }
+
+  const searchValue = elements.searchInput.value.trim();
+
+  if (!searchValue) {
+    closeAdminSuggestions();
+    return;
+  }
+
+  adminSuggestionItems = adminItems.slice(0, MAX_SEARCH_SUGGESTIONS);
+  adminActiveSuggestionIndex = -1;
+  elements.suggestions.replaceChildren();
+
+  if (adminSuggestionItems.length === 0) {
+    elements.suggestions.hidden = true;
+    elements.searchInput.setAttribute('aria-expanded', 'false');
+    return;
+  }
+
+  adminSuggestionItems.forEach((item, index) => {
+    const suggestion = document.createElement('button');
+
+    suggestion.id = `admin-suggestion-${index}`;
+    suggestion.className = 'search-suggestion';
+    suggestion.type = 'button';
+    suggestion.setAttribute('role', 'option');
+    suggestion.setAttribute('aria-selected', 'false');
+    suggestion.appendChild(createHighlightedItemName(item.name, searchValue));
+
+    suggestion.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      selectAdminSuggestion(item);
+    });
+
+    elements.suggestions.appendChild(suggestion);
+  });
+
+  elements.suggestions.hidden = false;
+  elements.searchInput.setAttribute('aria-expanded', 'true');
+}
+
+function updateAdminActiveSuggestion() {
+  const elements = getAdminElements();
+
+  if (!elements.searchInput || !elements.suggestions) {
+    return;
+  }
+
+  const options = elements.suggestions.querySelectorAll('.search-suggestion');
+
+  options.forEach((option, index) => {
+    const isActive = index === adminActiveSuggestionIndex;
+
+    option.classList.toggle('is-active', isActive);
+    option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+
+    if (isActive) {
+      elements.searchInput.setAttribute('aria-activedescendant', option.id);
+      option.scrollIntoView({ block: 'nearest' });
+    }
+  });
+
+  if (adminActiveSuggestionIndex === -1) {
+    elements.searchInput.removeAttribute('aria-activedescendant');
+  }
+}
+
+function handleAdminSearchKeydown(event) {
+  const elements = getAdminElements();
+  const isOpen = elements.suggestions && !elements.suggestions.hidden;
+
+  if (!isOpen || adminSuggestionItems.length === 0) {
+    if (event.key === 'Escape') {
+      closeAdminSuggestions();
+    }
+
+    return;
+  }
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+
+    adminActiveSuggestionIndex =
+      (adminActiveSuggestionIndex + 1) % adminSuggestionItems.length;
+
+    updateAdminActiveSuggestion();
+    return;
+  }
+
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+
+    adminActiveSuggestionIndex =
+      (adminActiveSuggestionIndex - 1 + adminSuggestionItems.length)
+      % adminSuggestionItems.length;
+
+    updateAdminActiveSuggestion();
+    return;
+  }
+
+  if (event.key === 'Enter' && adminActiveSuggestionIndex >= 0) {
+    event.preventDefault();
+    selectAdminSuggestion(adminSuggestionItems[adminActiveSuggestionIndex]);
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeAdminSuggestions();
+  }
+}
+
+async function loadInitialAdminItems() {
+  const elements = getAdminElements();
 
   try {
     const { data, error } = await supabaseClient
       .from('items')
       .select('id, name, price, image_path, created_at, updated_at')
       .order('name', { ascending: true })
-      .range(0, 49);
+      .range(0, INITIAL_ITEMS_LIMIT - 1);
 
     if (error) {
       throw error;
@@ -576,7 +723,7 @@ async function loadAdminItems() {
     adminItems = Array.isArray(data) ? data : [];
     renderAdminItems();
   } catch (error) {
-    console.error('Failed to load admin items:', error);
+    console.error('Failed to load initial admin items:', error);
 
     setMessage(
       elements.listMessage,
@@ -584,14 +731,60 @@ async function loadAdminItems() {
       'error'
     );
   } finally {
-    if (elements.loading) {
-      elements.loading.hidden = true;
+    elements.loading?.setAttribute('hidden', '');
+    elements.content?.removeAttribute('hidden');
+  }
+}
+
+async function searchAdminItems(searchValue) {
+  const elements = getAdminElements();
+
+  try {
+    const { data, error } = await supabaseClient.rpc(
+      'search_items_by_words',
+      {
+        search_text: searchValue,
+        max_results: SEARCH_RESULTS_LIMIT,
+        only_priced: false
+      }
+    );
+
+    if (error) {
+      throw error;
     }
 
-    if (elements.content) {
-      elements.content.hidden = false;
-    }
+    adminItems = Array.isArray(data) ? data : [];
+    renderAdminItems();
+    renderAdminSuggestions();
+  } catch (error) {
+    console.error('Failed to search items:', error);
+
+    setMessage(
+      elements.listMessage,
+      'تعذر تنفيذ البحث حالياً. حاول مرة أخرى.',
+      'error'
+    );
   }
+}
+
+async function handleAdminSearchInput() {
+  const elements = getAdminElements();
+
+  clearTimeout(adminSearchTimer);
+
+  const searchValue = elements.searchInput?.value.trim() || '';
+
+  if (!searchValue) {
+    closeAdminSuggestions();
+    adminSearchTimer = window.setTimeout(() => {
+      loadInitialAdminItems();
+    }, 150);
+    return;
+  }
+
+  adminSearchTimer = window.setTimeout(() => {
+    searchAdminItems(searchValue);
+  }, 250);
 }
 
 async function handleAddItemSubmit(event) {
@@ -643,7 +836,7 @@ async function handleAddItemSubmit(event) {
       throw error;
     }
 
-    adminItems.push(data);
+    adminItems = [data, ...adminItems];
 
     elements.addForm.reset();
     clearAddImagePreview();
@@ -692,7 +885,7 @@ async function handleEditItemSubmit(
   const itemIndex = adminItems.findIndex((item) => item.id === itemId);
 
   if (itemIndex === -1) {
-    setMessage(messageElement, 'لم يتم العثور على الصنف. حدّث الصفحة.', 'error');
+    setMessage(messageElement, 'لم يتم العثور على الصنف. ابحث عنه من جديد.', 'error');
     return;
   }
 
@@ -928,182 +1121,7 @@ async function handleDeleteImage(itemId) {
     );
   }
 }
-function closeAdminSuggestions() {
-  const searchInput = document.querySelector('#admin-items-search');
-  const suggestionsElement = document.querySelector('#admin-suggestions');
 
-  adminSuggestionItems = [];
-  adminActiveSuggestionIndex = -1;
-
-  if (suggestionsElement) {
-    suggestionsElement.replaceChildren();
-    suggestionsElement.hidden = true;
-  }
-
-  searchInput?.setAttribute('aria-expanded', 'false');
-  searchInput?.removeAttribute('aria-activedescendant');
-}
-
-function selectAdminSuggestion(item) {
-  const searchInput = document.querySelector('#admin-items-search');
-
-  if (!searchInput) {
-    return;
-  }
-
-  searchInput.value = item.name;
-  closeAdminSuggestions();
-  renderAdminItems();
-  searchInput.focus();
-}
-
-function renderAdminSuggestions() {
-  const searchInput = document.querySelector('#admin-items-search');
-  const suggestionsElement = document.querySelector('#admin-suggestions');
-
-  if (!searchInput || !suggestionsElement) {
-    return;
-  }
-
-  const searchValue = searchInput.value.trim();
-
-  if (!searchValue) {
-    closeAdminSuggestions();
-    return;
-  }
-
-  adminSuggestionItems = filterItemsBySearch(adminItems, searchValue)
-    .slice(0, MAX_SEARCH_SUGGESTIONS);
-
-  adminActiveSuggestionIndex = -1;
-  suggestionsElement.replaceChildren();
-
-  if (adminSuggestionItems.length === 0) {
-    suggestionsElement.hidden = true;
-    searchInput.setAttribute('aria-expanded', 'false');
-    return;
-  }
-
-  adminSuggestionItems.forEach((item, index) => {
-    const suggestion = document.createElement('button');
-
-    suggestion.id = `admin-suggestion-${index}`;
-    suggestion.className = 'search-suggestion';
-    suggestion.type = 'button';
-    suggestion.setAttribute('role', 'option');
-    suggestion.setAttribute('aria-selected', 'false');
-    suggestion.appendChild(createHighlightedItemName(item.name, searchValue));
-
-    suggestion.addEventListener('mousedown', (event) => {
-      event.preventDefault();
-      selectAdminSuggestion(item);
-    });
-
-    suggestionsElement.appendChild(suggestion);
-  });
-
-  suggestionsElement.hidden = false;
-  searchInput.setAttribute('aria-expanded', 'true');
-}
-
-function updateAdminActiveSuggestion() {
-  const searchInput = document.querySelector('#admin-items-search');
-  const suggestionsElement = document.querySelector('#admin-suggestions');
-
-  if (!searchInput || !suggestionsElement) {
-    return;
-  }
-
-  const options = suggestionsElement.querySelectorAll('.search-suggestion');
-
-  options.forEach((option, index) => {
-    const isActive = index === adminActiveSuggestionIndex;
-
-    option.classList.toggle('is-active', isActive);
-    option.setAttribute('aria-selected', isActive ? 'true' : 'false');
-
-    if (isActive) {
-      searchInput.setAttribute('aria-activedescendant', option.id);
-      option.scrollIntoView({ block: 'nearest' });
-    }
-  });
-
-  if (adminActiveSuggestionIndex === -1) {
-    searchInput.removeAttribute('aria-activedescendant');
-  }
-}
-
-function handleAdminSearchKeydown(event) {
-  const suggestionsElement = document.querySelector('#admin-suggestions');
-  const isOpen = suggestionsElement && !suggestionsElement.hidden;
-
-  if (!isOpen || adminSuggestionItems.length === 0) {
-    if (event.key === 'Escape') {
-      closeAdminSuggestions();
-    }
-
-    return;
-  }
-
-  if (event.key === 'ArrowDown') {
-    event.preventDefault();
-
-    adminActiveSuggestionIndex =
-      (adminActiveSuggestionIndex + 1) % adminSuggestionItems.length;
-
-    updateAdminActiveSuggestion();
-    return;
-  }
-
-  if (event.key === 'ArrowUp') {
-    event.preventDefault();
-
-    adminActiveSuggestionIndex =
-      (adminActiveSuggestionIndex - 1 + adminSuggestionItems.length)
-      % adminSuggestionItems.length;
-
-    updateAdminActiveSuggestion();
-    return;
-  }
-
-  if (event.key === 'Enter' && adminActiveSuggestionIndex >= 0) {
-    event.preventDefault();
-    selectAdminSuggestion(adminSuggestionItems[adminActiveSuggestionIndex]);
-    return;
-  }
-
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    closeAdminSuggestions();
-  }
-}
-async function searchAdminItems(searchValue) {
-  const elements = getAdminElements();
-
-  try {
-    const { data, error } = await supabaseClient
-      .from('items')
-      .select('id, name, price, image_path, created_at, updated_at')
-      .ilike('name', `%${searchValue}%`)
-      .order('name', { ascending: true })
-      .range(0, 99);
-
-    if (error) {
-      throw error;
-    }
-
-    adminItems = Array.isArray(data) ? data : [];
-    renderAdminItems();
-  } catch (error) {
-    console.error('Failed to search items:', error);
-
-    setMessage(
-      elements.listMessage,
-      'تعذر تنفيذ البحث حالياً. حاول مرة أخرى.',
-      'error'
-    );
-  }
-}
 function bindAdminEvents() {
   const elements = getAdminElements();
   const sortButtons = document.querySelectorAll('[data-sort-key]');
@@ -1125,34 +1143,19 @@ function bindAdminEvents() {
     showAddImagePreview(file);
   });
 
-let adminSearchTimer = null;
+  elements.searchInput?.addEventListener('input', handleAdminSearchInput);
 
-elements.searchInput?.addEventListener('input', () => {
-  clearTimeout(adminSearchTimer);
+  elements.searchInput?.addEventListener('keydown', handleAdminSearchKeydown);
 
-  adminSearchTimer = setTimeout(async () => {
-    const searchValue = elements.searchInput.value.trim();
-
-    if (!searchValue) {
-      await loadAdminItems();
+  elements.searchInput?.addEventListener('focus', () => {
+    if (elements.searchInput.value.trim()) {
       renderAdminSuggestions();
-      return;
     }
+  });
 
-    await searchAdminItems(searchValue);
-    renderAdminSuggestions();
-  }, 250);
-});
-
-elements.searchInput?.addEventListener('keydown', handleAdminSearchKeydown);
-
-elements.searchInput?.addEventListener('focus', () => {
-  renderAdminSuggestions();
-});
-
-elements.searchInput?.addEventListener('blur', () => {
-  window.setTimeout(closeAdminSuggestions, 150);
-});
+  elements.searchInput?.addEventListener('blur', () => {
+    window.setTimeout(closeAdminSuggestions, 150);
+  });
 
   sortButtons.forEach((button) => {
     button.addEventListener('click', () => {
@@ -1202,7 +1205,7 @@ async function initializeAdminPage() {
   }
 
   bindAdminEvents();
-  await loadAdminItems();
+  await loadInitialAdminItems();
 }
 
 document.addEventListener('DOMContentLoaded', initializeAdminPage);
