@@ -69,7 +69,7 @@
           class="search-input"
           type="search"
           autocomplete="off"
-          placeholder="ابحث عن صنف... مثال: كوكا 330"
+          placeholder="ابحث عن صنف... مثال: قسطل تلحيم 25"
           aria-label="ابحث عن صنف"
         >
       </div>
@@ -88,8 +88,8 @@
 
       <div id="items-content" hidden>
         <div class="table-info">
-          <span id="items-count">عدد الأصناف: 0</span>
-          <span>اكتب كلمة أو أكثر للبحث</span>
+          <span id="items-count">عدد الأصناف المسعّرة: 0</span>
+          <span>اضغط عنوان العمود لترتيب النتائج</span>
         </div>
 
         <div class="table-wrapper">
@@ -97,10 +97,43 @@
             <thead>
               <tr>
                 <th scope="col">الصورة</th>
-                <th scope="col">اسم الصنف</th>
-                <th scope="col">السعر</th>
+
+                <th
+                  id="viewer-sort-name"
+                  scope="col"
+                  class="sortable-header"
+                  aria-sort="ascending"
+                >
+                  <button
+                    class="sort-button"
+                    type="button"
+                    data-sort-key="name"
+                    aria-label="ترتيب حسب اسم الصنف"
+                  >
+                    اسم الصنف
+                    <span class="sort-icon" aria-hidden="true">▲</span>
+                  </button>
+                </th>
+
+                <th
+                  id="viewer-sort-price"
+                  scope="col"
+                  class="sortable-header"
+                  aria-sort="none"
+                >
+                  <button
+                    class="sort-button"
+                    type="button"
+                    data-sort-key="price"
+                    aria-label="ترتيب حسب السعر"
+                  >
+                    السعر
+                    <span class="sort-icon" aria-hidden="true">↕</span>
+                  </button>
+                </th>
               </tr>
             </thead>
+
             <tbody id="items-table-body"></tbody>
           </table>
         </div>

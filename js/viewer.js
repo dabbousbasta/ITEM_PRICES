@@ -3,7 +3,106 @@
 let allItems = [];
 let currentViewerProfile = null;
 
-function createViewerRow(item) {
+let viewerSortKey = 'name';
+let viewerSortDirection = 'asc';
+
+function compareViewerItems(firstItem, secondItem) {
+  if (viewerSortKey === 'price') {
+    const firstPrice = Number(firstItem.price);
+    const secondPrice = Number(secondItem.price);
+
+    return viewerSortDirection === 'asc'
+      ? firstPrice - secondPrice
+      : secondPrice - firstPrice;
+  }
+
+  const result = String(firstItem.name || '').localeCompare(
+    String(secondItem.name || ''),
+    'ar',
+    {
+      numeric: true,
+      sensitivity: 'base'
+    }
+  );
+
+  return viewerSortDirection === 'asc' ? result : -result;
+}
+
+function getSortedViewerItems(items) {
+  return [...items].sort(compareViewerItems);
+}
+
+function createHighlightedItemName(itemName, searchValue) {
+  const container = document.createElement('span');
+  container.className = 'item-name';
+
+  const name = String(itemName ?? '');
+  const searchWords = getSearchWords(searchValue);
+
+  if (searchWords.length === 0) {
+    container.textContent = name;
+    return container;
+  }
+
+  const normalizedName = normalizeArabicText(name);
+  const matchRanges = [];
+
+  searchWords.forEach((word) => {
+    const startIndex = normalizedName.indexOf(word);
+
+    if (startIndex !== -1) {
+      matchRanges.push({
+        start: startIndex,
+        end: startIndex + word.length
+      });
+    }
+  });
+
+  if (matchRanges.length === 0) {
+    container.textContent = name;
+    return container;
+  }
+
+  matchRanges.sort((firstRange, secondRange) => firstRange.start - secondRange.start);
+
+  const mergedRanges = [];
+
+  matchRanges.forEach((range) => {
+    const previousRange = mergedRanges[mergedRanges.length - 1];
+
+    if (!previousRange || range.start > previousRange.end) {
+      mergedRanges.push({ ...range });
+      return;
+    }
+
+    previousRange.end = Math.max(previousRange.end, range.end);
+  });
+
+  let currentIndex = 0;
+
+  mergedRanges.forEach((range) => {
+    if (range.start > currentIndex) {
+      container.appendChild(
+        document.createTextNode(name.slice(currentIndex, range.start))
+      );
+    }
+
+    const highlight = document.createElement('mark');
+    highlight.className = 'search-highlight';
+    highlight.textContent = name.slice(range.start, range.end);
+    container.appendChild(highlight);
+
+    currentIndex = range.end;
+  });
+
+  if (currentIndex < name.length) {
+    container.appendChild(document.createTextNode(name.slice(currentIndex)));
+  }
+
+  return container;
+}
+
+function createViewerRow(item, searchValue) {
   const row = document.createElement('tr');
 
   const imageCell = document.createElement('td');
@@ -11,10 +110,7 @@ function createViewerRow(item) {
   imageCell.appendChild(createItemImageElement(item));
 
   const nameCell = document.createElement('td');
-  const nameText = document.createElement('span');
-  nameText.className = 'item-name';
-  nameText.textContent = item.name;
-  nameCell.appendChild(nameText);
+  nameCell.appendChild(createHighlightedItemName(item.name, searchValue));
 
   const priceCell = document.createElement('td');
   priceCell.className = 'cell-price';
@@ -23,6 +119,46 @@ function createViewerRow(item) {
   row.append(imageCell, nameCell, priceCell);
 
   return row;
+}
+
+function updateViewerSortHeaders() {
+  const headers = {
+    name: document.querySelector('#viewer-sort-name'),
+    price: document.querySelector('#viewer-sort-price')
+  };
+
+  Object.entries(headers).forEach(([key, header]) => {
+    if (!header) {
+      return;
+    }
+
+    const isActive = key === viewerSortKey;
+    const icon = header.querySelector('.sort-icon');
+
+    header.setAttribute(
+      'aria-sort',
+      isActive
+        ? (viewerSortDirection === 'asc' ? 'ascending' : 'descending')
+        : 'none'
+    );
+
+    if (icon) {
+      icon.textContent = isActive
+        ? (viewerSortDirection === 'asc' ? '▲' : '▼')
+        : '↕';
+    }
+  });
+}
+
+function changeViewerSort(sortKey) {
+  if (viewerSortKey === sortKey) {
+    viewerSortDirection = viewerSortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    viewerSortKey = sortKey;
+    viewerSortDirection = 'asc';
+  }
+
+  renderViewerItems();
 }
 
 function renderViewerItems() {
@@ -35,16 +171,20 @@ function renderViewerItems() {
     return;
   }
 
-  const matchingItems = filterItemsBySearch(allItems, searchInput.value);
+  const searchValue = searchInput.value;
+  const matchingItems = filterItemsBySearch(allItems, searchValue);
+  const sortedItems = getSortedViewerItems(matchingItems);
 
   tableBody.replaceChildren();
 
-  matchingItems.forEach((item) => {
-    tableBody.appendChild(createViewerRow(item));
+  sortedItems.forEach((item) => {
+    tableBody.appendChild(createViewerRow(item, searchValue));
   });
 
-  itemsCount.textContent = `عدد الأصناف المسعّرة: ${matchingItems.length}`;
-  itemsEmpty.hidden = matchingItems.length !== 0;
+  itemsCount.textContent = `عدد الأصناف المسعّرة: ${sortedItems.length}`;
+  itemsEmpty.hidden = sortedItems.length !== 0;
+
+  updateViewerSortHeaders();
 }
 
 async function loadViewerItems() {
@@ -106,6 +246,32 @@ function showViewerProfile(profile) {
   }
 }
 
+function bindViewerEvents() {
+  const logoutButton = document.querySelector('#logout-button');
+  const searchInput = document.querySelector('#items-search');
+  const sortButtons = document.querySelectorAll('[data-sort-key]');
+
+  logoutButton?.addEventListener('click', async () => {
+    logoutButton.disabled = true;
+
+    try {
+      await signOutCurrentUser();
+    } catch (error) {
+      console.error('Failed to sign out:', error);
+      logoutButton.disabled = false;
+      window.alert('تعذر تسجيل الخروج حالياً. حاول مرة أخرى.');
+    }
+  });
+
+  searchInput?.addEventListener('input', renderViewerItems);
+
+  sortButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      changeViewerSort(button.dataset.sortKey);
+    });
+  });
+}
+
 async function initializeViewerPage() {
   const user = await requireAuthenticatedUser();
 
@@ -123,27 +289,7 @@ async function initializeViewerPage() {
 
   currentViewerProfile = profile;
   showViewerProfile(currentViewerProfile);
-
-  const logoutButton = document.querySelector('#logout-button');
-  const searchInput = document.querySelector('#items-search');
-
-  if (logoutButton) {
-    logoutButton.addEventListener('click', async () => {
-      logoutButton.disabled = true;
-
-      try {
-        await signOutCurrentUser();
-      } catch (error) {
-        console.error('Failed to sign out:', error);
-        logoutButton.disabled = false;
-        window.alert('تعذر تسجيل الخروج حالياً. حاول مرة أخرى.');
-      }
-    });
-  }
-
-  if (searchInput) {
-    searchInput.addEventListener('input', renderViewerItems);
-  }
+  bindViewerEvents();
 
   await loadViewerItems();
 }

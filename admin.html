@@ -60,7 +60,7 @@
       <aside class="admin-form-card" aria-labelledby="add-item-title">
         <div class="section-heading">
           <h2 id="add-item-title">إضافة صنف جديد</h2>
-          <p>الصورة اختيارية ويمكن إضافتها لاحقاً.</p>
+          <p>الصورة والسعر اختياريان، ويمكن إضافتهما لاحقاً.</p>
         </div>
 
         <form id="add-item-form" class="app-form" novalidate>
@@ -72,13 +72,13 @@
               type="text"
               maxlength="200"
               autocomplete="off"
-              placeholder="مثال: كوكا كولا 330 مل"
+              placeholder="مثال: قسطل تلحيم 25"
               required
             >
           </div>
 
           <div class="form-group">
-            <label for="add-item-price">السعر</label>
+            <label for="add-item-price">السعر <span aria-hidden="true">(اختياري)</span></label>
             <input
               id="add-item-price"
               name="price"
@@ -88,7 +88,6 @@
               step="0.01"
               inputmode="decimal"
               placeholder="مثال: 1.50"
-              required
             >
           </div>
 
@@ -138,7 +137,7 @@
             class="search-input"
             type="search"
             autocomplete="off"
-            placeholder="ابحث عن صنف... مثال: كوكا 330"
+            placeholder="ابحث عن صنف... مثال: قسطل تلحيم 25"
             aria-label="ابحث عن صنف لإدارته"
           >
         </div>
@@ -158,7 +157,7 @@
         <div id="admin-items-content" hidden>
           <div class="table-info">
             <span id="admin-items-count">عدد الأصناف: 0</span>
-            <span>نتائج البحث تتغير أثناء الكتابة</span>
+            <span>اضغط عنوان العمود لترتيب النتائج</span>
           </div>
 
           <div class="table-wrapper">
@@ -166,12 +165,62 @@
               <thead>
                 <tr>
                   <th scope="col">الصورة</th>
-                  <th scope="col">اسم الصنف</th>
-                  <th scope="col">السعر</th>
-                  <th scope="col">تاريخ الإضافة</th>
+
+                  <th
+                    id="admin-sort-name"
+                    scope="col"
+                    class="sortable-header"
+                    aria-sort="ascending"
+                  >
+                    <button
+                      class="sort-button"
+                      type="button"
+                      data-sort-key="name"
+                      aria-label="ترتيب حسب اسم الصنف"
+                    >
+                      اسم الصنف
+                      <span class="sort-icon" aria-hidden="true">▲</span>
+                    </button>
+                  </th>
+
+                  <th
+                    id="admin-sort-price"
+                    scope="col"
+                    class="sortable-header"
+                    aria-sort="none"
+                  >
+                    <button
+                      class="sort-button"
+                      type="button"
+                      data-sort-key="price"
+                      aria-label="ترتيب حسب السعر"
+                    >
+                      السعر
+                      <span class="sort-icon" aria-hidden="true">↕</span>
+                    </button>
+                  </th>
+
+                  <th
+                    id="admin-sort-updated-at"
+                    scope="col"
+                    class="sortable-header"
+                    aria-sort="none"
+                  >
+                    <button
+                      class="sort-button"
+                      type="button"
+                      data-sort-key="updated_at"
+                      aria-label="ترتيب حسب تاريخ التعديل"
+                    >
+                      آخر تعديل
+                      <span class="sort-icon" aria-hidden="true">↕</span>
+                    </button>
+                  </th>
+
                   <th scope="col">إجراءات</th>
                 </tr>
               </thead>
+
               <tbody id="admin-items-table-body"></tbody>
             </table>
           </div>

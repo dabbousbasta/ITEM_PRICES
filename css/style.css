@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
 :root {
   --green-900: #0b4b35;
   --green-800: #0f6446;
@@ -37,7 +38,7 @@ body {
   margin: 0;
   background: linear-gradient(180deg, var(--green-50) 0%, #ffffff 45%);
   color: var(--ink-900);
-  font-family: Tahoma, Arial, "Segoe UI", sans-serif;
+  font-family: "Cairo", Tahoma, Arial, sans-serif;
   line-height: 1.45;
 }
 
@@ -907,5 +908,63 @@ a {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+.sortable-header {
+  padding: 0 !important;
+}
+
+.sort-button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 36px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 7px 10px;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-align: right;
+}
+
+.sort-button:hover {
+  background: rgba(44, 166, 109, 0.1);
+}
+
+.sort-button:focus-visible {
+  outline: 3px solid rgba(44, 166, 109, 0.35);
+  outline-offset: -3px;
+}
+
+.sort-icon {
+  display: inline-block;
+  color: var(--green-700);
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.search-highlight {
+  border-radius: 4px;
+  background: #c9f0d6;
+  color: var(--green-900);
+  padding: 0 2px;
+  font: inherit;
+  font-weight: 900;
+}
+
+@media (max-width: 600px) {
+  .sort-button {
+    min-height: 31px;
+    gap: 3px;
+    padding: 5px 8px;
+  }
+
+  .sort-icon {
+    font-size: 0.64rem;
   }
 }

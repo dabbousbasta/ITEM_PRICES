@@ -4,6 +4,9 @@ let adminItems = [];
 let adminProfile = null;
 let itemPendingDeletion = null;
 
+let adminSortKey = 'name';
+let adminSortDirection = 'asc';
+
 function getAdminElements() {
   return {
     addForm: document.querySelector('#add-item-form'),
@@ -35,7 +38,10 @@ function parseOptionalPrice(value) {
   const textValue = String(value ?? '').trim().replace(',', '.');
 
   if (textValue === '') {
-    return { valid: true, price: null };
+    return {
+      valid: true,
+      price: null
+    };
   }
 
   const price = Number(textValue);
@@ -57,11 +63,17 @@ function validateItemData(nameValue, priceValue) {
   const name = String(nameValue ?? '').trim();
 
   if (!name) {
-    return { valid: false, message: 'يرجى إدخال اسم الصنف.' };
+    return {
+      valid: false,
+      message: 'يرجى إدخال اسم الصنف.'
+    };
   }
 
   if (name.length > 200) {
-    return { valid: false, message: 'اسم الصنف طويل جداً. الحد الأقصى هو 200 حرف.' };
+    return {
+      valid: false,
+      message: 'اسم الصنف طويل جداً. الحد الأقصى هو 200 حرف.'
+    };
   }
 
   const priceResult = parseOptionalPrice(priceValue);
@@ -70,7 +82,131 @@ function validateItemData(nameValue, priceValue) {
     return priceResult;
   }
 
-  return { valid: true, name, price: priceResult.price };
+  return {
+    valid: true,
+    name,
+    price: priceResult.price
+  };
+}
+
+function compareAdminItems(firstItem, secondItem) {
+  if (adminSortKey === 'price') {
+    const firstHasPrice = firstItem.price !== null && firstItem.price !== undefined;
+    const secondHasPrice = secondItem.price !== null && secondItem.price !== undefined;
+
+    if (!firstHasPrice && !secondHasPrice) {
+      return 0;
+    }
+
+    if (!firstHasPrice) {
+      return 1;
+    }
+
+    if (!secondHasPrice) {
+      return -1;
+    }
+
+    const firstPrice = Number(firstItem.price);
+    const secondPrice = Number(secondItem.price);
+
+    return adminSortDirection === 'asc'
+      ? firstPrice - secondPrice
+      : secondPrice - firstPrice;
+  }
+
+  if (adminSortKey === 'updated_at') {
+    const firstTime = new Date(firstItem.updated_at || 0).getTime();
+    const secondTime = new Date(secondItem.updated_at || 0).getTime();
+
+    return adminSortDirection === 'asc'
+      ? firstTime - secondTime
+      : secondTime - firstTime;
+  }
+
+  const result = String(firstItem.name || '').localeCompare(
+    String(secondItem.name || ''),
+    'ar',
+    {
+      numeric: true,
+      sensitivity: 'base'
+    }
+  );
+
+  return adminSortDirection === 'asc' ? result : -result;
+}
+
+function getSortedAdminItems(items) {
+  return [...items].sort(compareAdminItems);
+}
+
+function createHighlightedItemName(itemName, searchValue) {
+  const container = document.createElement('span');
+  container.className = 'item-name';
+
+  const name = String(itemName ?? '');
+  const searchWords = getSearchWords(searchValue);
+
+  if (searchWords.length === 0) {
+    container.textContent = name;
+    return container;
+  }
+
+  const normalizedName = normalizeArabicText(name);
+  const matchRanges = [];
+
+  searchWords.forEach((word) => {
+    const startIndex = normalizedName.indexOf(word);
+
+    if (startIndex !== -1) {
+      matchRanges.push({
+        start: startIndex,
+        end: startIndex + word.length
+      });
+    }
+  });
+
+  if (matchRanges.length === 0) {
+    container.textContent = name;
+    return container;
+  }
+
+  matchRanges.sort((firstRange, secondRange) => firstRange.start - secondRange.start);
+
+  const mergedRanges = [];
+
+  matchRanges.forEach((range) => {
+    const previousRange = mergedRanges[mergedRanges.length - 1];
+
+    if (!previousRange || range.start > previousRange.end) {
+      mergedRanges.push({ ...range });
+      return;
+    }
+
+    previousRange.end = Math.max(previousRange.end, range.end);
+  });
+
+  let currentIndex = 0;
+
+  mergedRanges.forEach((range) => {
+    if (range.start > currentIndex) {
+      container.appendChild(
+        document.createTextNode(name.slice(currentIndex, range.start))
+      );
+    }
+
+    const highlight = document.createElement('mark');
+    highlight.className = 'search-highlight';
+    highlight.textContent = name.slice(range.start, range.end);
+    container.appendChild(highlight);
+
+    currentIndex = range.end;
+  });
+
+  if (currentIndex < name.length) {
+    container.appendChild(document.createTextNode(name.slice(currentIndex)));
+  }
+
+  return container;
 }
 
 function revokePreviewUrl(imageElement) {
@@ -82,6 +218,7 @@ function revokePreviewUrl(imageElement) {
 
 function clearAddImagePreview() {
   const elements = getAdminElements();
+
   revokePreviewUrl(elements.addPreviewImage);
   elements.addPreviewImage?.removeAttribute('src');
 
@@ -94,6 +231,7 @@ function clearAddImagePreview() {
 
 function showAddImagePreview(file) {
   const elements = getAdminElements();
+
   clearAddImagePreview();
 
   if (!file) {
@@ -108,7 +246,8 @@ function showAddImagePreview(file) {
   }
 
   if (elements.addPreviewText) {
-    elements.addPreviewText.textContent = `${file.name} — ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+    elements.addPreviewText.textContent =
+      `${file.name} — ${(file.size / 1024 / 1024).toFixed(2)} MB`;
   }
 
   elements.addPreviewWrap?.classList.add('is-visible');
@@ -164,16 +303,18 @@ function createAdminPriceCell(item) {
 
 function createIconAction(className, label, title, clickHandler, disabled = false) {
   const button = document.createElement('button');
+
   button.className = `table-action ${className}`;
   button.type = 'button';
   button.setAttribute('aria-label', label);
   button.title = title;
   button.disabled = disabled;
   button.addEventListener('click', clickHandler);
+
   return button;
 }
 
-function createAdminRow(item) {
+function createAdminRow(item, searchValue) {
   const row = document.createElement('tr');
 
   const imageCell = document.createElement('td');
@@ -181,14 +322,13 @@ function createAdminRow(item) {
   imageCell.appendChild(createItemImageElement(item));
 
   const nameCell = document.createElement('td');
-  const nameText = document.createElement('span');
-  nameText.className = 'item-name';
-  nameText.textContent = item.name;
-  nameCell.appendChild(nameText);
+  nameCell.appendChild(createHighlightedItemName(item.name, searchValue));
+
+  const priceCell = createAdminPriceCell(item);
 
   const dateCell = document.createElement('td');
   dateCell.className = 'cell-date';
-  dateCell.textContent = formatDate(item.created_at);
+  dateCell.textContent = formatDate(item.updated_at);
 
   const actionsCell = document.createElement('td');
   actionsCell.className = 'cell-actions';
@@ -221,7 +361,8 @@ function createAdminRow(item) {
   actions.append(editButton, deleteImageButton, deleteButton);
   actionsCell.appendChild(actions);
 
-  row.append(imageCell, nameCell, createAdminPriceCell(item), dateCell, actionsCell);
+  row.append(imageCell, nameCell, priceCell, dateCell, actionsCell);
+
   return row;
 }
 
@@ -238,24 +379,29 @@ function createEditRow(item) {
 
   const nameGroup = document.createElement('div');
   nameGroup.className = 'form-group';
+
   const nameLabel = document.createElement('label');
   const nameInputId = `edit-name-${item.id}`;
   nameLabel.htmlFor = nameInputId;
   nameLabel.textContent = 'اسم الصنف';
+
   const nameInput = document.createElement('input');
   nameInput.id = nameInputId;
   nameInput.type = 'text';
   nameInput.maxLength = 200;
   nameInput.required = true;
   nameInput.value = item.name;
+
   nameGroup.append(nameLabel, nameInput);
 
   const priceGroup = document.createElement('div');
   priceGroup.className = 'form-group';
+
   const priceLabel = document.createElement('label');
   const priceInputId = `edit-price-${item.id}`;
   priceLabel.htmlFor = priceInputId;
   priceLabel.textContent = 'السعر (اختياري)';
+
   const priceInput = document.createElement('input');
   priceInput.id = priceInputId;
   priceInput.type = 'number';
@@ -267,21 +413,25 @@ function createEditRow(item) {
   priceInput.value = item.price === null || item.price === undefined
     ? ''
     : Number(item.price).toFixed(2);
+
   priceGroup.append(priceLabel, priceInput);
 
   const imageGroup = document.createElement('div');
   imageGroup.className = 'form-group';
+
   const imageLabel = document.createElement('label');
   const imageInputId = `edit-image-${item.id}`;
   imageLabel.htmlFor = imageInputId;
   imageLabel.textContent = item.image_path
     ? 'صورة جديدة (اختيارية)'
     : 'إضافة صورة (اختيارية)';
+
   const imageInput = document.createElement('input');
   imageInput.id = imageInputId;
   imageInput.className = 'file-input';
   imageInput.type = 'file';
   imageInput.accept = 'image/jpeg,image/png,image/webp';
+
   imageGroup.append(imageLabel, imageInput);
 
   const message = document.createElement('p');
@@ -307,12 +457,62 @@ function createEditRow(item) {
   form.append(nameGroup, priceGroup, imageGroup, message, actions);
 
   form.addEventListener('submit', (event) => {
-    handleEditItemSubmit(event, item.id, imageInput, nameInput, priceInput, message, saveButton);
+    handleEditItemSubmit(
+      event,
+      item.id,
+      imageInput,
+      nameInput,
+      priceInput,
+      message,
+      saveButton
+    );
   });
 
   cell.appendChild(form);
   editRow.appendChild(cell);
+
   return editRow;
+}
+
+function updateAdminSortHeaders() {
+  const headers = {
+    name: document.querySelector('#admin-sort-name'),
+    price: document.querySelector('#admin-sort-price'),
+    updated_at: document.querySelector('#admin-sort-updated-at')
+  };
+
+  Object.entries(headers).forEach(([key, header]) => {
+    if (!header) {
+      return;
+    }
+
+    const isActive = key === adminSortKey;
+    const icon = header.querySelector('.sort-icon');
+
+    header.setAttribute(
+      'aria-sort',
+      isActive
+        ? (adminSortDirection === 'asc' ? 'ascending' : 'descending')
+        : 'none'
+    );
+
+    if (icon) {
+      icon.textContent = isActive
+        ? (adminSortDirection === 'asc' ? '▲' : '▼')
+        : '↕';
+    }
+  });
+}
+
+function changeAdminSort(sortKey) {
+  if (adminSortKey === sortKey) {
+    adminSortDirection = adminSortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    adminSortKey = sortKey;
+    adminSortDirection = 'asc';
+  }
+
+  renderAdminItems();
 }
 
 function renderAdminItems(editItemId = null) {
@@ -322,19 +522,24 @@ function renderAdminItems(editItemId = null) {
     return;
   }
 
-  const matchingItems = filterItemsBySearch(adminItems, elements.searchInput.value);
+  const searchValue = elements.searchInput.value;
+  const matchingItems = filterItemsBySearch(adminItems, searchValue);
+  const sortedItems = getSortedAdminItems(matchingItems);
+
   elements.tableBody.replaceChildren();
 
-  matchingItems.forEach((item) => {
-    elements.tableBody.appendChild(createAdminRow(item));
+  sortedItems.forEach((item) => {
+    elements.tableBody.appendChild(createAdminRow(item, searchValue));
 
     if (item.id === editItemId) {
       elements.tableBody.appendChild(createEditRow(item));
     }
   });
 
-  elements.count.textContent = `عدد الأصناف: ${matchingItems.length}`;
-  elements.empty.hidden = matchingItems.length !== 0;
+  elements.count.textContent = `عدد الأصناف: ${sortedItems.length}`;
+  elements.empty.hidden = sortedItems.length !== 0;
+
+  updateAdminSortHeaders();
 }
 
 function openEditRow(itemId) {
@@ -348,6 +553,7 @@ function openEditRow(itemId) {
 
 async function loadAdminItems() {
   const elements = getAdminElements();
+
   setMessage(elements.listMessage);
 
   try {
@@ -364,6 +570,7 @@ async function loadAdminItems() {
     renderAdminItems();
   } catch (error) {
     console.error('Failed to load admin items:', error);
+
     setMessage(
       elements.listMessage,
       'تعذر تحميل الأصناف حالياً. حدّث الصفحة وحاول مرة أخرى.',
@@ -405,6 +612,7 @@ async function handleAddItemSubmit(event) {
   }
 
   setButtonLoading(elements.addButton, true, 'جارٍ إضافة الصنف...');
+
   let uploadedImagePath = null;
 
   try {
@@ -429,7 +637,7 @@ async function handleAddItemSubmit(event) {
     }
 
     adminItems.push(data);
-    adminItems.sort((firstItem, secondItem) => firstItem.name.localeCompare(secondItem.name, 'ar'));
+
     elements.addForm.reset();
     clearAddImagePreview();
 
@@ -483,6 +691,7 @@ async function handleEditItemSubmit(
 
   const previousItem = adminItems[itemIndex];
   const validation = validateItemData(nameInput.value, priceInput.value);
+
   setMessage(messageElement);
 
   if (!validation.valid) {
@@ -499,6 +708,7 @@ async function handleEditItemSubmit(
   }
 
   setButtonLoading(saveButton, true, 'جارٍ حفظ التعديل...');
+
   let newImagePath = null;
 
   try {
@@ -528,7 +738,6 @@ async function handleEditItemSubmit(
     }
 
     adminItems[itemIndex] = data;
-    adminItems.sort((firstItem, secondItem) => firstItem.name.localeCompare(secondItem.name, 'ar'));
 
     if (newImagePath && previousItem.image_path) {
       try {
@@ -539,6 +748,7 @@ async function handleEditItemSubmit(
     }
 
     renderAdminItems();
+
     setMessage(
       getAdminElements().listMessage,
       data.price === null
@@ -584,6 +794,7 @@ function openDeleteModal(itemId) {
 
 function closeDeleteModal() {
   const elements = getAdminElements();
+
   itemPendingDeletion = null;
   elements.deleteBackdrop?.classList.remove('is-open');
   elements.deleteBackdrop?.setAttribute('aria-hidden', 'true');
@@ -611,8 +822,10 @@ async function handleConfirmDeleteItem() {
     }
 
     adminItems = adminItems.filter((currentItem) => currentItem.id !== item.id);
+
     closeDeleteModal();
     renderAdminItems();
+
     setMessage(elements.listMessage, 'تم حذف الصنف بنجاح.', 'success');
 
     if (item.image_path) {
@@ -620,6 +833,7 @@ async function handleConfirmDeleteItem() {
         await deleteItemImage(item.image_path);
       } catch (imageError) {
         console.error('Item deleted but image cleanup failed:', imageError);
+
         setMessage(
           elements.listMessage,
           'تم حذف الصنف، لكن تعذر حذف ملف الصورة القديم من Storage.',
@@ -629,7 +843,12 @@ async function handleConfirmDeleteItem() {
     }
   } catch (error) {
     console.error('Failed to delete item:', error);
-    setMessage(elements.listMessage, 'تعذر حذف الصنف. حاول مرة أخرى.', 'error');
+
+    setMessage(
+      elements.listMessage,
+      'تعذر حذف الصنف. حاول مرة أخرى.',
+      'error'
+    );
   } finally {
     if (itemPendingDeletion) {
       setButtonLoading(elements.confirmDeleteButton, false);
@@ -651,7 +870,9 @@ async function handleDeleteImage(itemId) {
     return;
   }
 
-  const confirmed = window.confirm(`هل أنت متأكد من حذف صورة الصنف: ${item.name}؟`);
+  const confirmed = window.confirm(
+    `هل أنت متأكد من حذف صورة الصنف: ${item.name}؟`
+  );
 
   if (!confirmed) {
     return;
@@ -679,7 +900,11 @@ async function handleDeleteImage(itemId) {
       await deleteItemImage(item.image_path);
       setMessage(elements.listMessage, 'تم حذف الصورة بنجاح.', 'success');
     } catch (storageError) {
-      console.error('Database image reference removed but storage cleanup failed:', storageError);
+      console.error(
+        'Database image reference removed but storage cleanup failed:',
+        storageError
+      );
+
       setMessage(
         elements.listMessage,
         'تمت إزالة الصورة من الصنف، لكن تعذر حذف ملفها القديم من Storage.',
@@ -688,12 +913,18 @@ async function handleDeleteImage(itemId) {
     }
   } catch (error) {
     console.error('Failed to remove image:', error);
-    setMessage(elements.listMessage, 'تعذر حذف الصورة. حاول مرة أخرى.', 'error');
+
+    setMessage(
+      elements.listMessage,
+      'تعذر حذف الصورة. حاول مرة أخرى.',
+      'error'
+    );
   }
 }
 
 function bindAdminEvents() {
   const elements = getAdminElements();
+  const sortButtons = document.querySelectorAll('[data-sort-key]');
 
   elements.addForm?.addEventListener('submit', handleAddItemSubmit);
 
@@ -713,6 +944,13 @@ function bindAdminEvents() {
   });
 
   elements.searchInput?.addEventListener('input', () => renderAdminItems());
+
+  sortButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      changeAdminSort(button.dataset.sortKey);
+    });
+  });
+
   elements.cancelDeleteButton?.addEventListener('click', closeDeleteModal);
   elements.confirmDeleteButton?.addEventListener('click', handleConfirmDeleteItem);
 
