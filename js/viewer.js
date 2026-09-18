@@ -6,6 +6,150 @@ let currentViewerProfile = null;
 let viewerSortKey = 'name';
 let viewerSortDirection = 'asc';
 
+const SEARCH_HISTORY_STORAGE_KEY = 'item_prices_search_history';
+const LAST_SEARCH_STORAGE_KEY = 'item_prices_last_search';
+const MAX_SEARCH_HISTORY_ITEMS = 7;
+
+function getSavedSearchHistory() {
+  try {
+    const savedHistory = localStorage.getItem(SEARCH_HISTORY_STORAGE_KEY);
+
+    if (!savedHistory) {
+      return [];
+    }
+
+    const parsedHistory = JSON.parse(savedHistory);
+
+    if (!Array.isArray(parsedHistory)) {
+      return [];
+    }
+
+    return parsedHistory
+      .map((searchValue) => String(searchValue).trim())
+      .filter(Boolean)
+      .slice(0, MAX_SEARCH_HISTORY_ITEMS);
+  } catch (error) {
+    console.error('Failed to read search history:', error);
+    return [];
+  }
+}
+
+function saveSearchHistory(searchHistory) {
+  try {
+    localStorage.setItem(
+      SEARCH_HISTORY_STORAGE_KEY,
+      JSON.stringify(searchHistory.slice(0, MAX_SEARCH_HISTORY_ITEMS))
+    );
+  } catch (error) {
+    console.error('Failed to save search history:', error);
+  }
+}
+
+function getLastSearchValue() {
+  try {
+    return String(
+      localStorage.getItem(LAST_SEARCH_STORAGE_KEY) || ''
+    ).trim();
+  } catch (error) {
+    console.error('Failed to read last search:', error);
+    return '';
+  }
+}
+
+function saveLastSearchValue(searchValue) {
+  try {
+    const normalizedSearchValue = String(searchValue || '').trim();
+
+    if (normalizedSearchValue) {
+      localStorage.setItem(
+        LAST_SEARCH_STORAGE_KEY,
+        normalizedSearchValue
+      );
+    } else {
+      localStorage.removeItem(LAST_SEARCH_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.error('Failed to save last search:', error);
+  }
+}
+
+function addSearchToHistory(searchValue) {
+  const normalizedSearchValue = String(searchValue || '').trim();
+
+  if (!normalizedSearchValue) {
+    return;
+  }
+
+  const history = getSavedSearchHistory();
+
+  const updatedHistory = [
+    normalizedSearchValue,
+    ...history.filter(
+      (savedSearchValue) => savedSearchValue !== normalizedSearchValue
+    )
+  ].slice(0, MAX_SEARCH_HISTORY_ITEMS);
+
+  saveSearchHistory(updatedHistory);
+  renderSearchHistory();
+}
+
+function clearSearchHistory() {
+  try {
+    localStorage.removeItem(SEARCH_HISTORY_STORAGE_KEY);
+    localStorage.removeItem(LAST_SEARCH_STORAGE_KEY);
+  } catch (error) {
+    console.error('Failed to clear search history:', error);
+  }
+
+  renderSearchHistory();
+}
+
+function useSearchHistoryItem(searchValue) {
+  const searchInput = document.querySelector('#items-search');
+
+  if (!searchInput) {
+    return;
+  }
+
+  searchInput.value = searchValue;
+  saveLastSearchValue(searchValue);
+  addSearchToHistory(searchValue);
+  renderViewerItems();
+  searchInput.focus();
+}
+
+function renderSearchHistory() {
+  const historyContainer = document.querySelector('#search-history');
+  const historyList = document.querySelector('#search-history-list');
+
+  if (!historyContainer || !historyList) {
+    return;
+  }
+
+  const history = getSavedSearchHistory();
+
+  historyList.replaceChildren();
+  historyContainer.hidden = history.length === 0;
+
+  history.forEach((searchValue) => {
+    const historyButton = document.createElement('button');
+
+    historyButton.className = 'search-history-item';
+    historyButton.type = 'button';
+    historyButton.textContent = searchValue;
+    historyButton.setAttribute(
+      'aria-label',
+      `البحث مرة أخرى عن: ${searchValue}`
+    );
+
+    historyButton.addEventListener('click', () => {
+      useSearchHistoryItem(searchValue);
+    });
+
+    historyList.appendChild(historyButton);
+  });
+}
+
 function compareViewerItems(firstItem, secondItem) {
   if (viewerSortKey === 'price') {
     const firstPrice = Number(firstItem.price);
@@ -63,7 +207,9 @@ function createHighlightedItemName(itemName, searchValue) {
     return container;
   }
 
-  matchRanges.sort((firstRange, secondRange) => firstRange.start - secondRange.start);
+  matchRanges.sort(
+    (firstRange, secondRange) => firstRange.start - secondRange.start
+  );
 
   const mergedRanges = [];
 
@@ -249,6 +395,9 @@ function showViewerProfile(profile) {
 function bindViewerEvents() {
   const logoutButton = document.querySelector('#logout-button');
   const searchInput = document.querySelector('#items-search');
+  const clearSearchHistoryButton = document.querySelector(
+    '#clear-search-history'
+  );
   const sortButtons = document.querySelectorAll('[data-sort-key]');
 
   logoutButton?.addEventListener('click', async () => {
@@ -263,7 +412,30 @@ function bindViewerEvents() {
     }
   });
 
-  searchInput?.addEventListener('input', renderViewerItems);
+  searchInput?.addEventListener('input', () => {
+    const searchValue = searchInput.value;
+
+    saveLastSearchValue(searchValue);
+    renderViewerItems();
+  });
+
+  searchInput?.addEventListener('change', () => {
+    addSearchToHistory(searchInput.value);
+  });
+
+  searchInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      addSearchToHistory(searchInput.value);
+    }
+  });
+
+  searchInput?.addEventListener('blur', () => {
+    addSearchToHistory(searchInput.value);
+  });
+
+  clearSearchHistoryButton?.addEventListener('click', () => {
+    clearSearchHistory();
+  });
 
   sortButtons.forEach((button) => {
     button.addEventListener('click', () => {
@@ -289,7 +461,15 @@ async function initializeViewerPage() {
 
   currentViewerProfile = profile;
   showViewerProfile(currentViewerProfile);
+
+  const searchInput = document.querySelector('#items-search');
+
+  if (searchInput) {
+    searchInput.value = getLastSearchValue();
+  }
+
   bindViewerEvents();
+  renderSearchHistory();
 
   await loadViewerItems();
 }
