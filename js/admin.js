@@ -3,12 +3,17 @@
 let adminItems = [];
 let adminProfile = null;
 let itemPendingDeletion = null;
+
 let adminSortKey = 'name';
 let adminSortDirection = 'asc';
+
+let adminSuggestionItems = [];
+let adminActiveSuggestionIndex = -1;
 let adminSearchTimer = null;
 
 const INITIAL_ITEMS_LIMIT = 50;
 const SEARCH_RESULTS_LIMIT = 100;
+const MAX_SEARCH_SUGGESTIONS = 8;
 
 function getAdminElements() {
   return {
@@ -21,15 +26,20 @@ function getAdminElements() {
     addPreviewText: document.querySelector('#add-image-preview-text'),
     addMessage: document.querySelector('#add-item-message'),
     addButton: document.querySelector('#add-item-button'),
+
     searchInput: document.querySelector('#admin-items-search'),
+    suggestions: document.querySelector('#admin-suggestions'),
+
     listMessage: document.querySelector('#admin-list-message'),
     loading: document.querySelector('#admin-items-loading'),
     content: document.querySelector('#admin-items-content'),
     count: document.querySelector('#admin-items-count'),
     tableBody: document.querySelector('#admin-items-table-body'),
     empty: document.querySelector('#admin-items-empty'),
+
     email: document.querySelector('#admin-email'),
     logoutButton: document.querySelector('#logout-button'),
+
     deleteBackdrop: document.querySelector('#delete-modal-backdrop'),
     deleteText: document.querySelector('#delete-modal-text'),
     confirmDeleteButton: document.querySelector('#confirm-delete-button'),
@@ -40,7 +50,7 @@ function getAdminElements() {
 function parseOptionalPrice(value) {
   const textValue = String(value ?? '').trim().replace(',', '.');
 
-  if (!textValue) {
+  if (textValue === '') {
     return {
       valid: true,
       price: null
@@ -92,39 +102,42 @@ function validateItemData(nameValue, priceValue) {
   };
 }
 
-function compareAdminItems(a, b) {
+function compareAdminItems(firstItem, secondItem) {
   if (adminSortKey === 'price') {
-    const aHasPrice = a.price !== null && a.price !== undefined;
-    const bHasPrice = b.price !== null && b.price !== undefined;
+    const firstHasPrice = firstItem.price !== null && firstItem.price !== undefined;
+    const secondHasPrice = secondItem.price !== null && secondItem.price !== undefined;
 
-    if (!aHasPrice && !bHasPrice) {
+    if (!firstHasPrice && !secondHasPrice) {
       return 0;
     }
 
-    if (!aHasPrice) {
+    if (!firstHasPrice) {
       return 1;
     }
 
-    if (!bHasPrice) {
+    if (!secondHasPrice) {
       return -1;
     }
 
+    const firstPrice = Number(firstItem.price);
+    const secondPrice = Number(secondItem.price);
+
     return adminSortDirection === 'asc'
-      ? Number(a.price) - Number(b.price)
-      : Number(b.price) - Number(a.price);
+      ? firstPrice - secondPrice
+      : secondPrice - firstPrice;
   }
 
   if (adminSortKey === 'updated_at') {
-    const aTime = new Date(a.updated_at || 0).getTime();
-    const bTime = new Date(b.updated_at || 0).getTime();
+    const firstTime = new Date(firstItem.updated_at || 0).getTime();
+    const secondTime = new Date(secondItem.updated_at || 0).getTime();
 
     return adminSortDirection === 'asc'
-      ? aTime - bTime
-      : bTime - aTime;
+      ? firstTime - secondTime
+      : secondTime - firstTime;
   }
 
-  const result = String(a.name || '').localeCompare(
-    String(b.name || ''),
+  const result = String(firstItem.name || '').localeCompare(
+    String(secondItem.name || ''),
     'ar',
     {
       numeric: true,
@@ -135,14 +148,18 @@ function compareAdminItems(a, b) {
   return adminSortDirection === 'asc' ? result : -result;
 }
 
-function createHighlightedName(itemName, searchValue) {
+function getSortedAdminItems(items) {
+  return [...items].sort(compareAdminItems);
+}
+
+function createHighlightedItemName(itemName, searchValue) {
   const container = document.createElement('span');
   container.className = 'item-name';
 
   const name = String(itemName ?? '');
-  const words = getSearchWords(searchValue);
+  const searchWords = getSearchWords(searchValue);
 
-  if (!words.length) {
+  if (searchWords.length === 0) {
     container.textContent = name;
     return container;
   }
@@ -150,7 +167,7 @@ function createHighlightedName(itemName, searchValue) {
   const normalizedName = normalizeArabicText(name);
   const ranges = [];
 
-  words.forEach((word) => {
+  searchWords.forEach((word) => {
     const start = normalizedName.indexOf(word);
 
     if (start !== -1) {
@@ -161,67 +178,69 @@ function createHighlightedName(itemName, searchValue) {
     }
   });
 
-  if (!ranges.length) {
+  if (ranges.length === 0) {
     container.textContent = name;
     return container;
   }
 
-  ranges.sort((a, b) => a.start - b.start);
+  ranges.sort((firstRange, secondRange) => firstRange.start - secondRange.start);
 
-  const merged = [];
+  const mergedRanges = [];
 
   ranges.forEach((range) => {
-    const previous = merged[merged.length - 1];
+    const previous = mergedRanges[mergedRanges.length - 1];
 
     if (!previous || range.start > previous.end) {
-      merged.push({ ...range });
+      mergedRanges.push({ ...range });
       return;
     }
 
     previous.end = Math.max(previous.end, range.end);
   });
 
-  let position = 0;
+  let currentIndex = 0;
 
-  merged.forEach((range) => {
-    if (range.start > position) {
+  mergedRanges.forEach((range) => {
+    if (range.start > currentIndex) {
       container.appendChild(
-        document.createTextNode(name.slice(position, range.start))
+        document.createTextNode(name.slice(currentIndex, range.start))
       );
     }
 
-    const mark = document.createElement('mark');
-    mark.className = 'search-highlight';
-    mark.textContent = name.slice(range.start, range.end);
-    container.appendChild(mark);
+    const highlightedText = document.createElement('mark');
+    highlightedText.className = 'search-highlight';
+    highlightedText.textContent = name.slice(range.start, range.end);
 
-    position = range.end;
+    container.appendChild(highlightedText);
+
+    currentIndex = range.end;
   });
 
-  if (position < name.length) {
-    container.appendChild(document.createTextNode(name.slice(position)));
+  if (currentIndex < name.length) {
+    container.appendChild(document.createTextNode(name.slice(currentIndex)));
   }
 
   return container;
 }
 
-function createPriceCell(item) {
-  const cell = document.createElement('td');
-  cell.className = 'cell-price';
+function createAdminPriceCell(item) {
+  const priceCell = document.createElement('td');
+  priceCell.className = 'cell-price';
 
   if (item.price === null || item.price === undefined) {
-    const missing = document.createElement('span');
-    missing.className = 'price-missing';
-    missing.textContent = 'غير مسعّر';
-    cell.appendChild(missing);
-  } else {
-    cell.textContent = formatPrice(item.price);
+    const status = document.createElement('span');
+    status.className = 'price-missing';
+    status.textContent = 'غير مسعّر';
+    priceCell.appendChild(status);
+
+    return priceCell;
   }
 
-  return cell;
+  priceCell.textContent = formatPrice(item.price);
+  return priceCell;
 }
 
-function createActionButton(className, label, title, onClick, disabled = false) {
+function createActionButton(className, label, title, clickHandler, disabled = false) {
   const button = document.createElement('button');
 
   button.className = `table-action ${className}`;
@@ -229,7 +248,7 @@ function createActionButton(className, label, title, onClick, disabled = false) 
   button.setAttribute('aria-label', label);
   button.title = title;
   button.disabled = disabled;
-  button.addEventListener('click', onClick);
+  button.addEventListener('click', clickHandler);
 
   return button;
 }
@@ -242,7 +261,7 @@ function createAdminRow(item, searchValue) {
   imageCell.appendChild(createItemImageElement(item));
 
   const nameCell = document.createElement('td');
-  nameCell.appendChild(createHighlightedName(item.name, searchValue));
+  nameCell.appendChild(createHighlightedItemName(item.name, searchValue));
 
   const dateCell = document.createElement('td');
   dateCell.className = 'cell-date';
@@ -254,34 +273,35 @@ function createAdminRow(item, searchValue) {
   const actions = document.createElement('div');
   actions.className = 'actions-row';
 
-  actions.append(
-    createActionButton(
-      'table-action-edit',
-      'تعديل الصنف',
-      'تعديل الاسم أو السعر أو الصورة',
-      () => openEditRow(item.id)
-    ),
-    createActionButton(
-      'table-action-image',
-      'حذف الصورة',
-      item.image_path ? 'حذف صورة الصنف' : 'لا توجد صورة لهذا الصنف',
-      () => handleDeleteImage(item.id),
-      !item.image_path
-    ),
-    createActionButton(
-      'table-action-delete',
-      'حذف الصنف',
-      'حذف الصنف',
-      () => openDeleteModal(item.id)
-    )
+  const editButton = createActionButton(
+    'table-action-edit',
+    'تعديل الصنف',
+    'تعديل الاسم أو السعر أو الصورة',
+    () => openEditRow(item.id)
   );
 
+  const deleteImageButton = createActionButton(
+    'table-action-image',
+    'حذف الصورة',
+    item.image_path ? 'حذف صورة الصنف' : 'لا توجد صورة لهذا الصنف',
+    () => handleDeleteImage(item.id),
+    !item.image_path
+  );
+
+  const deleteButton = createActionButton(
+    'table-action-delete',
+    'حذف الصنف',
+    'حذف الصنف',
+    () => openDeleteModal(item.id)
+  );
+
+  actions.append(editButton, deleteImageButton, deleteButton);
   actionsCell.appendChild(actions);
 
   row.append(
     imageCell,
     nameCell,
-    createPriceCell(item),
+    createAdminPriceCell(item),
     dateCell,
     actionsCell
   );
@@ -312,8 +332,8 @@ function createEditRow(item) {
   nameInput.id = nameInputId;
   nameInput.type = 'text';
   nameInput.maxLength = 200;
-  nameInput.value = item.name;
   nameInput.required = true;
+  nameInput.value = item.name;
 
   nameGroup.append(nameLabel, nameInput);
 
@@ -384,9 +404,9 @@ function createEditRow(item) {
     handleEditItemSubmit(
       event,
       item.id,
+      imageInput,
       nameInput,
       priceInput,
-      imageInput,
       message,
       saveButton
     );
@@ -398,7 +418,7 @@ function createEditRow(item) {
   return editRow;
 }
 
-function updateSortHeaders() {
+function updateAdminSortHeaders() {
   const headers = {
     name: document.querySelector('#admin-sort-name'),
     price: document.querySelector('#admin-sort-price'),
@@ -410,18 +430,18 @@ function updateSortHeaders() {
       return;
     }
 
-    const active = key === adminSortKey;
+    const isActive = key === adminSortKey;
     const icon = header.querySelector('.sort-icon');
 
     header.setAttribute(
       'aria-sort',
-      active
+      isActive
         ? (adminSortDirection === 'asc' ? 'ascending' : 'descending')
         : 'none'
     );
 
     if (icon) {
-      icon.textContent = active
+      icon.textContent = isActive
         ? (adminSortDirection === 'asc' ? '▲' : '▼')
         : '↕';
     }
@@ -436,7 +456,7 @@ function renderAdminItems(editItemId = null) {
   }
 
   const searchValue = elements.searchInput?.value || '';
-  const sortedItems = [...adminItems].sort(compareAdminItems);
+  const sortedItems = getSortedAdminItems(adminItems);
 
   elements.tableBody.replaceChildren();
 
@@ -451,7 +471,7 @@ function renderAdminItems(editItemId = null) {
   elements.count.textContent = `عدد النتائج: ${sortedItems.length}`;
   elements.empty.hidden = sortedItems.length !== 0;
 
-  updateSortHeaders();
+  updateAdminSortHeaders();
 }
 
 function changeAdminSort(sortKey) {
@@ -469,15 +489,170 @@ function openEditRow(itemId) {
   renderAdminItems(itemId);
 
   window.setTimeout(() => {
-    document.querySelector(`#edit-name-${CSS.escape(itemId)}`)?.focus();
+    const input = document.querySelector(`#edit-name-${CSS.escape(itemId)}`);
+    input?.focus();
   }, 0);
+}
+
+function closeAdminSuggestions() {
+  const elements = getAdminElements();
+
+  adminSuggestionItems = [];
+  adminActiveSuggestionIndex = -1;
+
+  if (elements.suggestions) {
+    elements.suggestions.replaceChildren();
+    elements.suggestions.hidden = true;
+  }
+
+  elements.searchInput?.setAttribute('aria-expanded', 'false');
+  elements.searchInput?.removeAttribute('aria-activedescendant');
+}
+
+function selectAdminSuggestion(item) {
+  const elements = getAdminElements();
+
+  if (!elements.searchInput) {
+    return;
+  }
+
+  elements.searchInput.value = item.name;
+  closeAdminSuggestions();
+
+  adminItems = [item];
+  renderAdminItems();
+
+  elements.searchInput.focus();
+}
+
+function renderAdminSuggestions() {
+  const elements = getAdminElements();
+
+  if (!elements.searchInput || !elements.suggestions) {
+    return;
+  }
+
+  const searchValue = elements.searchInput.value.trim();
+
+  if (!searchValue) {
+    closeAdminSuggestions();
+    return;
+  }
+
+  adminSuggestionItems = adminItems.slice(0, MAX_SEARCH_SUGGESTIONS);
+  adminActiveSuggestionIndex = -1;
+
+  elements.suggestions.replaceChildren();
+
+  if (adminSuggestionItems.length === 0) {
+    elements.suggestions.hidden = true;
+    elements.searchInput.setAttribute('aria-expanded', 'false');
+    return;
+  }
+
+  adminSuggestionItems.forEach((item, index) => {
+    const suggestion = document.createElement('button');
+
+    suggestion.id = `admin-suggestion-${index}`;
+    suggestion.className = 'search-suggestion';
+    suggestion.type = 'button';
+    suggestion.setAttribute('role', 'option');
+    suggestion.setAttribute('aria-selected', 'false');
+    suggestion.appendChild(createHighlightedItemName(item.name, searchValue));
+
+    suggestion.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      selectAdminSuggestion(item);
+    });
+
+    elements.suggestions.appendChild(suggestion);
+  });
+
+  elements.suggestions.hidden = false;
+  elements.searchInput.setAttribute('aria-expanded', 'true');
+}
+
+function updateAdminActiveSuggestion() {
+  const elements = getAdminElements();
+
+  if (!elements.searchInput || !elements.suggestions) {
+    return;
+  }
+
+  const options = elements.suggestions.querySelectorAll('.search-suggestion');
+
+  options.forEach((option, index) => {
+    const isActive = index === adminActiveSuggestionIndex;
+
+    option.classList.toggle('is-active', isActive);
+    option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+
+    if (isActive) {
+      elements.searchInput.setAttribute('aria-activedescendant', option.id);
+      option.scrollIntoView({ block: 'nearest' });
+    }
+  });
+
+  if (adminActiveSuggestionIndex === -1) {
+    elements.searchInput.removeAttribute('aria-activedescendant');
+  }
+}
+
+function handleAdminSearchKeydown(event) {
+  const elements = getAdminElements();
+  const listIsOpen = elements.suggestions && !elements.suggestions.hidden;
+
+  if (!listIsOpen || adminSuggestionItems.length === 0) {
+    if (event.key === 'Escape') {
+      closeAdminSuggestions();
+    }
+
+    return;
+  }
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+
+    adminActiveSuggestionIndex =
+      (adminActiveSuggestionIndex + 1) % adminSuggestionItems.length;
+
+    updateAdminActiveSuggestion();
+    return;
+  }
+
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+
+    adminActiveSuggestionIndex =
+      (adminActiveSuggestionIndex - 1 + adminSuggestionItems.length)
+      % adminSuggestionItems.length;
+
+    updateAdminActiveSuggestion();
+    return;
+  }
+
+  if (event.key === 'Enter' && adminActiveSuggestionIndex >= 0) {
+    event.preventDefault();
+    selectAdminSuggestion(adminSuggestionItems[adminActiveSuggestionIndex]);
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeAdminSuggestions();
+  }
 }
 
 function hideAdminLoading() {
   const elements = getAdminElements();
 
-  elements.loading?.setAttribute('hidden', '');
-  elements.content?.removeAttribute('hidden');
+  if (elements.loading) {
+    elements.loading.hidden = true;
+  }
+
+  if (elements.content) {
+    elements.content.hidden = false;
+  }
 }
 
 async function loadInitialAdminItems() {
@@ -497,11 +672,11 @@ async function loadInitialAdminItems() {
     adminItems = Array.isArray(data) ? data : [];
     renderAdminItems();
   } catch (error) {
-    console.error('Initial admin loading error:', error);
+    console.error('Failed to load initial admin items:', error);
 
     setMessage(
       elements.listMessage,
-      'تعذر تحميل الأصناف حالياً. تأكد من الإنترنت ثم حدّث الصفحة.',
+      'تعذر تحميل الأصناف حالياً. تأكد من اتصال الإنترنت ثم حدّث الصفحة.',
       'error'
     );
   } finally {
@@ -528,8 +703,9 @@ async function searchAdminItems(searchValue) {
 
     adminItems = Array.isArray(data) ? data : [];
     renderAdminItems();
+    renderAdminSuggestions();
   } catch (error) {
-    console.error('Admin search error:', error);
+    console.error('Failed to search items:', error);
 
     setMessage(
       elements.listMessage,
@@ -546,12 +722,58 @@ function handleAdminSearchInput() {
   clearTimeout(adminSearchTimer);
 
   adminSearchTimer = window.setTimeout(() => {
-    if (searchValue) {
-      searchAdminItems(searchValue);
-    } else {
+    if (!searchValue) {
+      closeAdminSuggestions();
       loadInitialAdminItems();
+      return;
     }
+
+    searchAdminItems(searchValue);
   }, 250);
+}
+
+function revokePreviewUrl(imageElement) {
+  if (imageElement?.dataset?.objectUrl) {
+    URL.revokeObjectURL(imageElement.dataset.objectUrl);
+    delete imageElement.dataset.objectUrl;
+  }
+}
+
+function clearAddImagePreview() {
+  const elements = getAdminElements();
+
+  revokePreviewUrl(elements.addPreviewImage);
+  elements.addPreviewImage?.removeAttribute('src');
+
+  if (elements.addPreviewText) {
+    elements.addPreviewText.textContent = '';
+  }
+
+  elements.addPreviewWrap?.classList.remove('is-visible');
+}
+
+function showAddImagePreview(file) {
+  const elements = getAdminElements();
+
+  clearAddImagePreview();
+
+  if (!file) {
+    return;
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+
+  if (elements.addPreviewImage) {
+    elements.addPreviewImage.src = objectUrl;
+    elements.addPreviewImage.dataset.objectUrl = objectUrl;
+  }
+
+  if (elements.addPreviewText) {
+    elements.addPreviewText.textContent =
+      `${file.name} — ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+  }
+
+  elements.addPreviewWrap?.classList.add('is-visible');
 }
 
 async function uploadItemImage(file) {
@@ -584,47 +806,6 @@ async function deleteItemImage(imagePath) {
   if (error) {
     throw error;
   }
-}
-
-function clearAddImagePreview() {
-  const elements = getAdminElements();
-
-  if (elements.addPreviewImage?.dataset?.objectUrl) {
-    URL.revokeObjectURL(elements.addPreviewImage.dataset.objectUrl);
-    delete elements.addPreviewImage.dataset.objectUrl;
-  }
-
-  elements.addPreviewImage?.removeAttribute('src');
-
-  if (elements.addPreviewText) {
-    elements.addPreviewText.textContent = '';
-  }
-
-  elements.addPreviewWrap?.classList.remove('is-visible');
-}
-
-function showAddImagePreview(file) {
-  const elements = getAdminElements();
-
-  clearAddImagePreview();
-
-  if (!file) {
-    return;
-  }
-
-  const objectUrl = URL.createObjectURL(file);
-
-  if (elements.addPreviewImage) {
-    elements.addPreviewImage.src = objectUrl;
-    elements.addPreviewImage.dataset.objectUrl = objectUrl;
-  }
-
-  if (elements.addPreviewText) {
-    elements.addPreviewText.textContent =
-      `${file.name} — ${(file.size / 1024 / 1024).toFixed(2)} MB`;
-  }
-
-  elements.addPreviewWrap?.classList.add('is-visible');
 }
 
 async function handleAddItemSubmit(event) {
@@ -691,13 +872,13 @@ async function handleAddItemSubmit(event) {
 
     renderAdminItems();
   } catch (error) {
-    console.error('Add item error:', error);
+    console.error('Failed to add item:', error);
 
     if (uploadedImagePath) {
       try {
         await deleteItemImage(uploadedImagePath);
       } catch (cleanupError) {
-        console.error('Unused image cleanup error:', cleanupError);
+        console.error('Failed to remove unused uploaded image:', cleanupError);
       }
     }
 
@@ -714,9 +895,9 @@ async function handleAddItemSubmit(event) {
 async function handleEditItemSubmit(
   event,
   itemId,
+  imageInput,
   nameInput,
   priceInput,
-  imageInput,
   messageElement,
   saveButton
 ) {
@@ -732,13 +913,15 @@ async function handleEditItemSubmit(
   const previousItem = adminItems[itemIndex];
   const validation = validateItemData(nameInput.value, priceInput.value);
 
+  setMessage(messageElement);
+
   if (!validation.valid) {
     setMessage(messageElement, validation.message, 'error');
     return;
   }
 
-  const file = imageInput.files?.[0] || null;
-  const imageValidation = validateImageFile(file);
+  const newFile = imageInput.files?.[0] || null;
+  const imageValidation = validateImageFile(newFile);
 
   if (!imageValidation.valid) {
     setMessage(messageElement, imageValidation.message, 'error');
@@ -750,23 +933,23 @@ async function handleEditItemSubmit(
   let newImagePath = null;
 
   try {
-    if (file) {
-      newImagePath = await uploadItemImage(file);
+    if (newFile) {
+      newImagePath = await uploadItemImage(newFile);
     }
 
-    const updateData = {
+    const updatePayload = {
       name: validation.name,
       price: validation.price,
       updated_by: adminProfile.id
     };
 
     if (newImagePath) {
-      updateData.image_path = newImagePath;
+      updatePayload.image_path = newImagePath;
     }
 
     const { data, error } = await supabaseClient
       .from('items')
-      .update(updateData)
+      .update(updatePayload)
       .eq('id', itemId)
       .select('id, name, price, image_path, created_at, updated_at')
       .single();
@@ -781,7 +964,7 @@ async function handleEditItemSubmit(
       try {
         await deleteItemImage(previousItem.image_path);
       } catch (cleanupError) {
-        console.error('Old image cleanup error:', cleanupError);
+        console.error('Failed to remove old image:', cleanupError);
       }
     }
 
@@ -789,23 +972,25 @@ async function handleEditItemSubmit(
 
     setMessage(
       getAdminElements().listMessage,
-      'تم حفظ التعديل بنجاح.',
+      data.price === null
+        ? 'تم حفظ التعديل. الصنف غير مسعّر ولن يظهر في صفحة الأسعار حتى تضع له سعراً.'
+        : 'تم حفظ التعديل بنجاح.',
       'success'
     );
   } catch (error) {
-    console.error('Edit item error:', error);
+    console.error('Failed to edit item:', error);
 
     if (newImagePath) {
       try {
         await deleteItemImage(newImagePath);
       } catch (cleanupError) {
-        console.error('New image cleanup error:', cleanupError);
+        console.error('Failed to remove unused replacement image:', cleanupError);
       }
     }
 
     setMessage(
       messageElement,
-      'تعذر حفظ التعديل. حاول مرة أخرى.',
+      'تعذر حفظ التعديل. تأكد من البيانات والاتصال ثم حاول مرة أخرى.',
       'error'
     );
   } finally {
@@ -825,6 +1010,7 @@ function openDeleteModal(itemId) {
   elements.deleteText.textContent = `هل أنت متأكد من حذف الصنف: ${item.name}؟`;
   elements.deleteBackdrop.classList.add('is-open');
   elements.deleteBackdrop.setAttribute('aria-hidden', 'false');
+  elements.confirmDeleteButton?.focus();
 }
 
 function closeDeleteModal() {
@@ -867,7 +1053,7 @@ async function handleConfirmDeleteItem() {
       try {
         await deleteItemImage(item.image_path);
       } catch (imageError) {
-        console.error('Image deletion error:', imageError);
+        console.error('Item deleted but image cleanup failed:', imageError);
 
         setMessage(
           elements.listMessage,
@@ -877,7 +1063,7 @@ async function handleConfirmDeleteItem() {
       }
     }
   } catch (error) {
-    console.error('Delete item error:', error);
+    console.error('Failed to delete item:', error);
 
     setMessage(
       elements.listMessage,
@@ -935,7 +1121,10 @@ async function handleDeleteImage(itemId) {
       await deleteItemImage(item.image_path);
       setMessage(elements.listMessage, 'تم حذف الصورة بنجاح.', 'success');
     } catch (storageError) {
-      console.error('Storage image deletion error:', storageError);
+      console.error(
+        'Database image reference removed but storage cleanup failed:',
+        storageError
+      );
 
       setMessage(
         elements.listMessage,
@@ -944,7 +1133,7 @@ async function handleDeleteImage(itemId) {
       );
     }
   } catch (error) {
-    console.error('Delete image error:', error);
+    console.error('Failed to remove image:', error);
 
     setMessage(
       elements.listMessage,
@@ -977,6 +1166,18 @@ function bindAdminEvents() {
 
   elements.searchInput?.addEventListener('input', handleAdminSearchInput);
 
+  elements.searchInput?.addEventListener('keydown', handleAdminSearchKeydown);
+
+  elements.searchInput?.addEventListener('focus', () => {
+    if (elements.searchInput.value.trim()) {
+      renderAdminSuggestions();
+    }
+  });
+
+  elements.searchInput?.addEventListener('blur', () => {
+    window.setTimeout(closeAdminSuggestions, 150);
+  });
+
   sortButtons.forEach((button) => {
     button.addEventListener('click', () => {
       changeAdminSort(button.dataset.sortKey);
@@ -984,10 +1185,20 @@ function bindAdminEvents() {
   });
 
   elements.cancelDeleteButton?.addEventListener('click', closeDeleteModal);
-  elements.confirmDeleteButton?.addEventListener('click', handleConfirmDeleteItem);
+
+  elements.confirmDeleteButton?.addEventListener(
+    'click',
+    handleConfirmDeleteItem
+  );
 
   elements.deleteBackdrop?.addEventListener('click', (event) => {
     if (event.target === elements.deleteBackdrop) {
+      closeDeleteModal();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && itemPendingDeletion) {
       closeDeleteModal();
     }
   });
@@ -998,7 +1209,7 @@ function bindAdminEvents() {
     try {
       await signOutCurrentUser();
     } catch (error) {
-      console.error('Sign out error:', error);
+      console.error('Failed to sign out:', error);
       elements.logoutButton.disabled = false;
       window.alert('تعذر تسجيل الخروج حالياً. حاول مرة أخرى.');
     }
@@ -1010,7 +1221,9 @@ async function initializeAdminPage() {
 
   bindAdminEvents();
 
-  window.setTimeout(hideAdminLoading, 1000);
+  window.setTimeout(() => {
+    hideAdminLoading();
+  }, 1200);
 
   adminProfile = await requireAdmin();
 

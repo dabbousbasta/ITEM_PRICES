@@ -1009,23 +1009,6 @@ a {
   background: var(--green-100);
   color: var(--green-900);
 }
-
-.search-suggestion mark {
-  border-radius: 4px;
-  background: #c9f0d6;
-  color: var(--green-900);
-  padding: 0 2px;
-  font: inherit;
-  font-weight: 900;
-}
-
-@media (max-width: 600px) {
-  .search-suggestions {
-    max-height: 255px;
-  }
-
-  .search-suggestion {
-    min-height: 43px;
-    font-size: 0.84rem;
-  }
+[hidden] {
+  display: none !important;
 }
