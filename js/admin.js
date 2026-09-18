@@ -15,6 +15,157 @@ const INITIAL_ITEMS_LIMIT = 50;
 const SEARCH_RESULTS_LIMIT = 100;
 const MAX_SEARCH_SUGGESTIONS = 8;
 
+const ADMIN_SEARCH_HISTORY_STORAGE_KEY = 'item_prices_admin_search_history';
+const ADMIN_LAST_SEARCH_STORAGE_KEY = 'item_prices_admin_last_search';
+const MAX_ADMIN_SEARCH_HISTORY_ITEMS = 7;
+
+function getSavedAdminSearchHistory() {
+  try {
+    const savedHistory = localStorage.getItem(
+      ADMIN_SEARCH_HISTORY_STORAGE_KEY
+    );
+
+    if (!savedHistory) {
+      return [];
+    }
+
+    const parsedHistory = JSON.parse(savedHistory);
+
+    if (!Array.isArray(parsedHistory)) {
+      return [];
+    }
+
+    return parsedHistory
+      .map((searchValue) => String(searchValue).trim())
+      .filter(Boolean)
+      .slice(0, MAX_ADMIN_SEARCH_HISTORY_ITEMS);
+  } catch (error) {
+    console.error('Failed to read admin search history:', error);
+    return [];
+  }
+}
+
+function saveAdminSearchHistory(searchHistory) {
+  try {
+    localStorage.setItem(
+      ADMIN_SEARCH_HISTORY_STORAGE_KEY,
+      JSON.stringify(searchHistory.slice(0, MAX_ADMIN_SEARCH_HISTORY_ITEMS))
+    );
+  } catch (error) {
+    console.error('Failed to save admin search history:', error);
+  }
+}
+
+function getLastAdminSearchValue() {
+  try {
+    return String(
+      localStorage.getItem(ADMIN_LAST_SEARCH_STORAGE_KEY) || ''
+    ).trim();
+  } catch (error) {
+    console.error('Failed to read last admin search:', error);
+    return '';
+  }
+}
+
+function saveLastAdminSearchValue(searchValue) {
+  try {
+    const normalizedSearchValue = String(searchValue || '').trim();
+
+    if (normalizedSearchValue) {
+      localStorage.setItem(
+        ADMIN_LAST_SEARCH_STORAGE_KEY,
+        normalizedSearchValue
+      );
+    } else {
+      localStorage.removeItem(ADMIN_LAST_SEARCH_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.error('Failed to save last admin search:', error);
+  }
+}
+
+function addAdminSearchToHistory(searchValue) {
+  const normalizedSearchValue = String(searchValue || '').trim();
+
+  if (!normalizedSearchValue) {
+    return;
+  }
+
+  const history = getSavedAdminSearchHistory();
+
+  const updatedHistory = [
+    normalizedSearchValue,
+    ...history.filter(
+      (savedSearchValue) => savedSearchValue !== normalizedSearchValue
+    )
+  ].slice(0, MAX_ADMIN_SEARCH_HISTORY_ITEMS);
+
+  saveAdminSearchHistory(updatedHistory);
+  renderAdminSearchHistory();
+}
+
+function clearAdminSearchHistory() {
+  try {
+    localStorage.removeItem(ADMIN_SEARCH_HISTORY_STORAGE_KEY);
+    localStorage.removeItem(ADMIN_LAST_SEARCH_STORAGE_KEY);
+  } catch (error) {
+    console.error('Failed to clear admin search history:', error);
+  }
+
+  renderAdminSearchHistory();
+}
+
+function useAdminSearchHistoryItem(searchValue) {
+  const elements = getAdminElements();
+
+  if (!elements.searchInput) {
+    return;
+  }
+
+  elements.searchInput.value = searchValue;
+  saveLastAdminSearchValue(searchValue);
+  addAdminSearchToHistory(searchValue);
+  closeAdminSuggestions();
+  handleAdminSearchInput();
+  elements.searchInput.focus();
+}
+
+function renderAdminSearchHistory() {
+  const historyContainer = document.querySelector(
+    '#admin-search-history'
+  );
+  const historyList = document.querySelector(
+    '#admin-search-history-list'
+  );
+
+  if (!historyContainer || !historyList) {
+    return;
+  }
+
+  const history = getSavedAdminSearchHistory();
+
+  historyList.replaceChildren();
+  historyContainer.hidden = history.length === 0;
+
+  history.forEach((searchValue) => {
+    const historyButton = document.createElement('button');
+
+    historyButton.className = 'search-history-item';
+    historyButton.type = 'button';
+    historyButton.textContent = searchValue;
+    historyButton.setAttribute(
+      'aria-label',
+      `البحث مرة أخرى عن: ${searchValue}`
+    );
+
+    historyButton.addEventListener('click', () => {
+      useAdminSearchHistoryItem(searchValue);
+    });
+
+    historyList.appendChild(historyButton);
+  });
+}
+
 function getAdminElements() {
   return {
     addForm: document.querySelector('#add-item-form'),
@@ -517,6 +668,8 @@ function selectAdminSuggestion(item) {
   }
 
   elements.searchInput.value = item.name;
+  saveLastAdminSearchValue(item.name);
+  addAdminSearchToHistory(item.name);
   closeAdminSuggestions();
 
   adminItems = [item];
@@ -603,6 +756,11 @@ function handleAdminSearchKeydown(event) {
   const listIsOpen = elements.suggestions && !elements.suggestions.hidden;
 
   if (!listIsOpen || adminSuggestionItems.length === 0) {
+    if (event.key === 'Enter') {
+      addAdminSearchToHistory(elements.searchInput?.value);
+      return;
+    }
+
     if (event.key === 'Escape') {
       closeAdminSuggestions();
     }
@@ -634,6 +792,11 @@ function handleAdminSearchKeydown(event) {
   if (event.key === 'Enter' && adminActiveSuggestionIndex >= 0) {
     event.preventDefault();
     selectAdminSuggestion(adminSuggestionItems[adminActiveSuggestionIndex]);
+    return;
+  }
+
+  if (event.key === 'Enter') {
+    addAdminSearchToHistory(elements.searchInput?.value);
     return;
   }
 
@@ -718,6 +881,8 @@ async function searchAdminItems(searchValue) {
 function handleAdminSearchInput() {
   const elements = getAdminElements();
   const searchValue = elements.searchInput?.value.trim() || '';
+
+  saveLastAdminSearchValue(searchValue);
 
   clearTimeout(adminSearchTimer);
 
@@ -1146,6 +1311,9 @@ async function handleDeleteImage(itemId) {
 function bindAdminEvents() {
   const elements = getAdminElements();
   const sortButtons = document.querySelectorAll('[data-sort-key]');
+  const clearSearchHistoryButton = document.querySelector(
+    '#clear-admin-search-history'
+  );
 
   elements.addForm?.addEventListener('submit', handleAddItemSubmit);
 
@@ -1175,7 +1343,13 @@ function bindAdminEvents() {
   });
 
   elements.searchInput?.addEventListener('blur', () => {
+    addAdminSearchToHistory(elements.searchInput?.value);
+
     window.setTimeout(closeAdminSuggestions, 150);
+  });
+
+  clearSearchHistoryButton?.addEventListener('click', () => {
+    clearAdminSearchHistory();
   });
 
   sortButtons.forEach((button) => {
@@ -1233,6 +1407,19 @@ async function initializeAdminPage() {
 
   if (elements.email) {
     elements.email.textContent = adminProfile.email || 'مدير النظام';
+  }
+
+  if (elements.searchInput) {
+    elements.searchInput.value = getLastAdminSearchValue();
+  }
+
+  renderAdminSearchHistory();
+
+  const savedSearchValue = elements.searchInput?.value.trim() || '';
+
+  if (savedSearchValue) {
+    handleAdminSearchInput();
+    return;
   }
 
   await loadInitialAdminItems();
