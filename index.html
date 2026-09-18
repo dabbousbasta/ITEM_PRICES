@@ -151,5 +151,39 @@
   <script src="js/common.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/viewer.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const {
+        data: { user },
+        error: userError
+      } = await supabaseClient.auth.getUser();
+
+      // لا يوجد مستخدم مسجّل: يبقى في صفحة العرض
+      if (userError || !user) {
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabaseClient
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Could not check admin role:', profileError);
+        return;
+      }
+
+      // فقط Admin ينتقل تلقائياً إلى لوحة الإدارة
+      if (profile?.role === 'admin') {
+        window.location.replace('./admin.html');
+      }
+    } catch (error) {
+      console.error('Automatic admin redirect error:', error);
+    }
+  });
+</script>
+  
 </body>
 </html>
