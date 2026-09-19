@@ -252,7 +252,31 @@ function createHighlightedItemName(itemName, searchValue) {
 
   return container;
 }
+function updateViewerClearSearchButton() {
+  const searchInput = document.querySelector('#items-search');
+  const clearButton = document.querySelector('#clear-viewer-search');
 
+  if (!searchInput || !clearButton) {
+    return;
+  }
+
+  clearButton.hidden = searchInput.value.trim() === '';
+}
+
+function clearViewerSearch() {
+  const searchInput = document.querySelector('#items-search');
+
+  if (!searchInput) {
+    return;
+  }
+
+  searchInput.value = '';
+  saveLastSearchValue('');
+  closeViewerSuggestions();
+  updateViewerClearSearchButton();
+  renderViewerItems();
+  searchInput.focus();
+}
 function closeViewerSuggestions() {
   const searchInput = document.querySelector('#items-search');
   const suggestionsElement = document.querySelector('#viewer-suggestions');
@@ -567,6 +591,9 @@ function bindViewerEvents() {
   const clearSearchHistoryButton = document.querySelector(
     '#clear-search-history'
   );
+    const clearViewerSearchButton = document.querySelector(
+    '#clear-viewer-search'
+  );
   const sortButtons = document.querySelectorAll('[data-sort-key]');
 
   logoutButton?.addEventListener('click', async () => {
@@ -585,6 +612,7 @@ function bindViewerEvents() {
     const searchValue = searchInput.value;
 
     saveLastSearchValue(searchValue);
+    updateViewerClearSearchButton();
     renderViewerItems();
     renderViewerSuggestions();
   });
@@ -609,6 +637,9 @@ function bindViewerEvents() {
 
   clearSearchHistoryButton?.addEventListener('click', () => {
     clearSearchHistory();
+  });
+    clearViewerSearchButton?.addEventListener('click', () => {
+    clearViewerSearch();
   });
 
   sortButtons.forEach((button) => {
@@ -643,6 +674,7 @@ async function initializeViewerPage() {
   }
 
   bindViewerEvents();
+  updateViewerClearSearchButton();
   renderSearchHistory();
 
   await loadViewerItems();
