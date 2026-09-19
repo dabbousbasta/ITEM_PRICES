@@ -644,6 +644,33 @@ function openEditRow(itemId) {
     input?.focus();
   }, 0);
 }
+function updateAdminClearSearchButton() {
+  const elements = getAdminElements();
+  const clearButton = document.querySelector('#clear-admin-search');
+
+  if (!elements.searchInput || !clearButton) {
+    return;
+  }
+
+  clearButton.hidden = elements.searchInput.value.trim() === '';
+}
+
+function clearAdminSearch() {
+  const elements = getAdminElements();
+
+  if (!elements.searchInput) {
+    return;
+  }
+
+  clearTimeout(adminSearchTimer);
+
+  elements.searchInput.value = '';
+  saveLastAdminSearchValue('');
+  closeAdminSuggestions();
+  updateAdminClearSearchButton();
+  loadInitialAdminItems();
+  elements.searchInput.focus();
+}
 
 function closeAdminSuggestions() {
   const elements = getAdminElements();
@@ -887,6 +914,7 @@ function handleAdminSearchInput() {
   const searchValue = elements.searchInput?.value.trim() || '';
 
   saveLastAdminSearchValue(searchValue);
+    updateAdminClearSearchButton();
 
   clearTimeout(adminSearchTimer);
 
@@ -1318,6 +1346,9 @@ function bindAdminEvents() {
   const clearSearchHistoryButton = document.querySelector(
     '#clear-admin-search-history'
   );
+    const clearAdminSearchButton = document.querySelector(
+    '#clear-admin-search'
+  );
 
   elements.addForm?.addEventListener('submit', handleAddItemSubmit);
 
@@ -1354,6 +1385,9 @@ function bindAdminEvents() {
 
   clearSearchHistoryButton?.addEventListener('click', () => {
     clearAdminSearchHistory();
+  });
+    clearAdminSearchButton?.addEventListener('click', () => {
+    clearAdminSearch();
   });
 
   sortButtons.forEach((button) => {
@@ -1418,6 +1452,7 @@ async function initializeAdminPage() {
   }
 
   renderAdminSearchHistory();
+    updateAdminClearSearchButton();
 
   const savedSearchValue = elements.searchInput?.value.trim() || '';
 
