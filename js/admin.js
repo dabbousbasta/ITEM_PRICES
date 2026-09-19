@@ -668,6 +668,15 @@ function openEditRow(itemId) {
     input?.focus();
   }, 0);
 }
+function setAdminSearchLoading(isLoading) {
+  const spinner = document.querySelector('#admin-search-spinner');
+
+  if (!spinner) {
+    return;
+  }
+
+  spinner.hidden = !isLoading;
+}
 function updateAdminClearSearchButton() {
   const elements = getAdminElements();
   const clearButton = document.querySelector('#clear-admin-search');
@@ -687,6 +696,7 @@ function clearAdminSearch() {
   }
 
   clearTimeout(adminSearchTimer);
+    setAdminSearchLoading(false);
 
   elements.searchInput.value = '';
   saveLastAdminSearchValue('');
@@ -905,6 +915,8 @@ async function loadInitialAdminItems() {
 async function searchAdminItems(searchValue) {
   const elements = getAdminElements();
 
+  setAdminSearchLoading(true);
+
   try {
     const { data, error } = await supabaseClient.rpc(
       'search_items_by_words',
@@ -930,9 +942,10 @@ async function searchAdminItems(searchValue) {
       'تعذر تنفيذ البحث حالياً. حاول مرة أخرى.',
       'error'
     );
+  } finally {
+    setAdminSearchLoading(false);
   }
 }
-
 function handleAdminSearchInput() {
   const elements = getAdminElements();
   const searchValue = elements.searchInput?.value.trim() || '';
@@ -944,6 +957,7 @@ function handleAdminSearchInput() {
 
   adminSearchTimer = window.setTimeout(() => {
     if (!searchValue) {
+      setAdminSearchLoading(false);
       closeAdminSuggestions();
       loadInitialAdminItems();
       return;
@@ -1456,6 +1470,7 @@ async function initializeAdminPage() {
   const elements = getAdminElements();
 
   bindAdminEvents();
+    setAdminSearchLoading(false);
 
   window.setTimeout(() => {
     hideAdminLoading();
