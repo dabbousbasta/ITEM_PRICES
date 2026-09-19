@@ -1113,3 +1113,55 @@ a {
     height: 32px;
   }
 }
+/* زر مسح النص داخل مربع البحث */
+.clear-search-button {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 11px;
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: #e7f6ec;
+  color: var(--green-900);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  transform: translateY(-50%);
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.clear-search-button:hover {
+  background: #c9f0d6;
+  transform: translateY(-50%) scale(1.06);
+}
+
+.clear-search-button:focus-visible {
+  outline: 3px solid rgba(44, 166, 109, 0.35);
+  outline-offset: 2px;
+}
+
+.search-input {
+  padding-left: 46px;
+}
+
+@media (max-width: 600px) {
+  .clear-search-button {
+    left: 9px;
+    width: 26px;
+    height: 26px;
+    font-size: 1.2rem;
+  }
+
+  .search-input {
+    padding-left: 42px;
+  }
+}
