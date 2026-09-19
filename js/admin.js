@@ -789,17 +789,17 @@ function handleAdminSearchKeydown(event) {
     return;
   }
 
-  if (event.key === 'Enter' && adminActiveSuggestionIndex >= 0) {
-    event.preventDefault();
-    selectAdminSuggestion(adminSuggestionItems[adminActiveSuggestionIndex]);
-    return;
-  }
-
   if (event.key === 'Enter') {
-    addAdminSearchToHistory(elements.searchInput?.value);
+    event.preventDefault();
+
+    const selectedItem =
+      adminActiveSuggestionIndex >= 0
+        ? adminSuggestionItems[adminActiveSuggestionIndex]
+        : adminSuggestionItems[0];
+
+    selectAdminSuggestion(selectedItem);
     return;
   }
-
   if (event.key === 'Escape') {
     event.preventDefault();
     closeAdminSuggestions();
