@@ -967,6 +967,33 @@ function handleAdminSearchInput() {
   }, 250);
 }
 
+async function refreshAdminSearchResults() {
+  const elements = getAdminElements();
+  const searchValue = elements.searchInput?.value.trim() || '';
+  const refreshButton = document.querySelector('#refresh-admin-search');
+
+  clearTimeout(adminSearchTimer);
+  closeAdminSuggestions();
+
+  if (refreshButton) {
+    refreshButton.disabled = true;
+  }
+
+  try {
+    if (searchValue) {
+      await searchAdminItems(searchValue);
+    } else {
+      setAdminSearchLoading(true);
+      await loadInitialAdminItems();
+    }
+  } finally {
+    setAdminSearchLoading(false);
+
+    if (refreshButton) {
+      refreshButton.disabled = false;
+    }
+  }
+}
 function revokePreviewUrl(imageElement) {
   if (imageElement?.dataset?.objectUrl) {
     URL.revokeObjectURL(imageElement.dataset.objectUrl);
@@ -1387,6 +1414,9 @@ function bindAdminEvents() {
     const clearAdminSearchButton = document.querySelector(
     '#clear-admin-search'
   );
+    const refreshAdminSearchButton = document.querySelector(
+    '#refresh-admin-search'
+  );
 
   elements.addForm?.addEventListener('submit', handleAddItemSubmit);
 
@@ -1426,6 +1456,9 @@ function bindAdminEvents() {
   });
     clearAdminSearchButton?.addEventListener('click', () => {
     clearAdminSearch();
+  });
+    refreshAdminSearchButton?.addEventListener('click', () => {
+    refreshAdminSearchResults();
   });
 
   sortButtons.forEach((button) => {
