@@ -1202,3 +1202,53 @@ a {
     left: 9px;
   }
 }
+/* زر تحديث نتائج البحث في لوحة الإدارة */
+.refresh-search-button {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 76px;
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: #eef3ff;
+  color: #3446a5;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  transform: translateY(-50%);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.refresh-search-button:hover:not(:disabled) {
+  background: #dfe8ff;
+  color: #20327f;
+  transform: translateY(-50%) rotate(25deg);
+}
+
+.refresh-search-button:focus-visible {
+  outline: 3px solid rgba(52, 70, 165, 0.3);
+  outline-offset: 2px;
+}
+
+.refresh-search-button:disabled {
+  cursor: wait;
+}
+
+@media (max-width: 600px) {
+  .refresh-search-button {
+    left: 68px;
+    width: 26px;
+    height: 26px;
+    font-size: 1.12rem;
+  }
+}
