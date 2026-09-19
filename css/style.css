@@ -1165,3 +1165,40 @@ a {
     padding-left: 42px;
   }
 }
+/* مؤشر البحث في صفحة الإدارة */
+.search-spinner {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 47px;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #c9f0d6;
+  border-top-color: var(--green-700);
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translateY(-50%);
+  animation: search-spinner-rotate 700ms linear infinite;
+}
+
+.search-input:has(+ .clear-search-button[hidden]) ~ .search-spinner {
+  left: 11px;
+}
+
+@keyframes search-spinner-rotate {
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}
+
+@media (max-width: 600px) {
+  .search-spinner {
+    left: 43px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .search-input:has(+ .clear-search-button[hidden]) ~ .search-spinner {
+    left: 9px;
+  }
+}
