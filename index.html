@@ -62,8 +62,9 @@
     </section>
 
     <section class="content-card" aria-label="قائمة أسعار الأصناف">
-      <div class="search-bar">
+        <div class="search-bar">
         <span class="search-icon" aria-hidden="true">⌕</span>
+
         <input
           id="items-search"
           class="search-input"
@@ -71,7 +72,19 @@
           autocomplete="off"
           placeholder="ابحث عن صنف... مثال: قسطل تلحيم 25"
           aria-label="ابحث عن صنف"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded="false"
+          aria-controls="viewer-suggestions"
         >
+
+        <div
+          id="viewer-suggestions"
+          class="search-suggestions"
+          role="listbox"
+          aria-label="اقتراحات الأصناف"
+          hidden
+        ></div>
       </div>
       <div
         id="search-history"
