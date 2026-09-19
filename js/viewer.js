@@ -499,7 +499,30 @@ function changeViewerSort(sortKey) {
 
   renderViewerItems();
 }
+function updateViewerSearchMessage(searchValue, resultsCount) {
+  const messageElement = document.querySelector('#viewer-message');
+  const normalizedSearchValue = String(searchValue || '').trim();
 
+  if (!normalizedSearchValue) {
+    setMessage(messageElement);
+    return;
+  }
+
+  if (resultsCount === 0) {
+    setMessage(
+      messageElement,
+      `لا توجد أصناف مطابقة لعبارة: ${normalizedSearchValue}`,
+      'warning'
+    );
+    return;
+  }
+
+  setMessage(
+    messageElement,
+    `تم العثور على ${resultsCount} صنفاً مطابقاً لعبارة: ${normalizedSearchValue}`,
+    'success'
+  );
+}
 function renderViewerItems() {
   const searchInput = document.querySelector('#items-search');
   const tableBody = document.querySelector('#items-table-body');
@@ -523,6 +546,7 @@ function renderViewerItems() {
   itemsCount.textContent = `عدد الأصناف المسعّرة: ${sortedItems.length}`;
   itemsEmpty.hidden = sortedItems.length !== 0;
 
+  updateViewerSearchMessage(searchValue, sortedItems.length);
   updateViewerSortHeaders();
 }
 
