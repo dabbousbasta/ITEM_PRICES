@@ -667,9 +667,13 @@ function selectAdminSuggestion(item) {
     return;
   }
 
+  // يمنع تنفيذ بحث قديم مؤجل يعيد فتح الاقتراحات
+  clearTimeout(adminSearchTimer);
+
   elements.searchInput.value = item.name;
   saveLastAdminSearchValue(item.name);
   addAdminSearchToHistory(item.name);
+
   closeAdminSuggestions();
 
   adminItems = [item];
