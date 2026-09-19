@@ -6,9 +6,13 @@ let currentViewerProfile = null;
 let viewerSortKey = 'name';
 let viewerSortDirection = 'asc';
 
+let viewerSuggestionItems = [];
+let viewerActiveSuggestionIndex = -1;
+
 const SEARCH_HISTORY_STORAGE_KEY = 'item_prices_search_history';
 const LAST_SEARCH_STORAGE_KEY = 'item_prices_last_search';
 const MAX_SEARCH_HISTORY_ITEMS = 7;
+const MAX_VIEWER_SEARCH_SUGGESTIONS = 8;
 
 function getSavedSearchHistory() {
   try {
@@ -114,6 +118,7 @@ function useSearchHistoryItem(searchValue) {
   searchInput.value = searchValue;
   saveLastSearchValue(searchValue);
   addSearchToHistory(searchValue);
+  closeViewerSuggestions();
   renderViewerItems();
   searchInput.focus();
 }
@@ -246,6 +251,170 @@ function createHighlightedItemName(itemName, searchValue) {
   }
 
   return container;
+}
+
+function closeViewerSuggestions() {
+  const searchInput = document.querySelector('#items-search');
+  const suggestionsElement = document.querySelector('#viewer-suggestions');
+
+  viewerSuggestionItems = [];
+  viewerActiveSuggestionIndex = -1;
+
+  if (suggestionsElement) {
+    suggestionsElement.replaceChildren();
+    suggestionsElement.hidden = true;
+  }
+
+  searchInput?.setAttribute('aria-expanded', 'false');
+  searchInput?.removeAttribute('aria-activedescendant');
+}
+
+function selectViewerSuggestion(item) {
+  const searchInput = document.querySelector('#items-search');
+
+  if (!searchInput) {
+    return;
+  }
+
+  searchInput.value = item.name;
+  saveLastSearchValue(item.name);
+  addSearchToHistory(item.name);
+  closeViewerSuggestions();
+  renderViewerItems();
+  searchInput.focus();
+}
+
+function renderViewerSuggestions() {
+  const searchInput = document.querySelector('#items-search');
+  const suggestionsElement = document.querySelector('#viewer-suggestions');
+
+  if (!searchInput || !suggestionsElement) {
+    return;
+  }
+
+  const searchValue = searchInput.value.trim();
+
+  if (!searchValue) {
+    closeViewerSuggestions();
+    return;
+  }
+
+  viewerSuggestionItems = filterItemsBySearch(allItems, searchValue)
+    .slice(0, MAX_VIEWER_SEARCH_SUGGESTIONS);
+
+  viewerActiveSuggestionIndex = -1;
+  suggestionsElement.replaceChildren();
+
+  if (viewerSuggestionItems.length === 0) {
+    suggestionsElement.hidden = true;
+    searchInput.setAttribute('aria-expanded', 'false');
+    return;
+  }
+
+  viewerSuggestionItems.forEach((item, index) => {
+    const suggestion = document.createElement('button');
+
+    suggestion.id = `viewer-suggestion-${index}`;
+    suggestion.className = 'search-suggestion';
+    suggestion.type = 'button';
+    suggestion.setAttribute('role', 'option');
+    suggestion.setAttribute('aria-selected', 'false');
+    suggestion.appendChild(createHighlightedItemName(item.name, searchValue));
+
+    suggestion.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      selectViewerSuggestion(item);
+    });
+
+    suggestionsElement.appendChild(suggestion);
+  });
+
+  suggestionsElement.hidden = false;
+  searchInput.setAttribute('aria-expanded', 'true');
+}
+
+function updateViewerActiveSuggestion() {
+  const searchInput = document.querySelector('#items-search');
+  const suggestionsElement = document.querySelector('#viewer-suggestions');
+
+  if (!searchInput || !suggestionsElement) {
+    return;
+  }
+
+  const options = suggestionsElement.querySelectorAll('.search-suggestion');
+
+  options.forEach((option, index) => {
+    const isActive = index === viewerActiveSuggestionIndex;
+
+    option.classList.toggle('is-active', isActive);
+    option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+
+    if (isActive) {
+      searchInput.setAttribute('aria-activedescendant', option.id);
+      option.scrollIntoView({ block: 'nearest' });
+    }
+  });
+
+  if (viewerActiveSuggestionIndex === -1) {
+    searchInput.removeAttribute('aria-activedescendant');
+  }
+}
+
+function handleViewerSearchKeydown(event) {
+  const suggestionsElement = document.querySelector('#viewer-suggestions');
+  const listIsOpen = suggestionsElement && !suggestionsElement.hidden;
+
+  if (!listIsOpen || viewerSuggestionItems.length === 0) {
+    if (event.key === 'Enter') {
+      addSearchToHistory(event.currentTarget.value);
+    }
+
+    if (event.key === 'Escape') {
+      closeViewerSuggestions();
+    }
+
+    return;
+  }
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+
+    viewerActiveSuggestionIndex =
+      (viewerActiveSuggestionIndex + 1) % viewerSuggestionItems.length;
+
+    updateViewerActiveSuggestion();
+    return;
+  }
+
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+
+    viewerActiveSuggestionIndex =
+      (viewerActiveSuggestionIndex - 1 + viewerSuggestionItems.length)
+      % viewerSuggestionItems.length;
+
+    updateViewerActiveSuggestion();
+    return;
+  }
+
+  if (event.key === 'Enter' && viewerActiveSuggestionIndex >= 0) {
+    event.preventDefault();
+    selectViewerSuggestion(
+      viewerSuggestionItems[viewerActiveSuggestionIndex]
+    );
+    return;
+  }
+
+  if (event.key === 'Enter') {
+    addSearchToHistory(event.currentTarget.value);
+    closeViewerSuggestions();
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeViewerSuggestions();
+  }
 }
 
 function createViewerRow(item, searchValue) {
@@ -417,20 +586,25 @@ function bindViewerEvents() {
 
     saveLastSearchValue(searchValue);
     renderViewerItems();
+    renderViewerSuggestions();
   });
 
   searchInput?.addEventListener('change', () => {
     addSearchToHistory(searchInput.value);
   });
 
-  searchInput?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      addSearchToHistory(searchInput.value);
+  searchInput?.addEventListener('keydown', handleViewerSearchKeydown);
+
+  searchInput?.addEventListener('focus', () => {
+    if (searchInput.value.trim()) {
+      renderViewerSuggestions();
     }
   });
 
   searchInput?.addEventListener('blur', () => {
     addSearchToHistory(searchInput.value);
+
+    window.setTimeout(closeViewerSuggestions, 150);
   });
 
   clearSearchHistoryButton?.addEventListener('click', () => {
