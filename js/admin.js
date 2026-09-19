@@ -598,7 +598,30 @@ function updateAdminSortHeaders() {
     }
   });
 }
+function updateAdminSearchMessage(searchValue, resultsCount) {
+  const elements = getAdminElements();
+  const normalizedSearchValue = String(searchValue || '').trim();
 
+  if (!normalizedSearchValue) {
+    setMessage(elements.listMessage);
+    return;
+  }
+
+  if (resultsCount === 0) {
+    setMessage(
+      elements.listMessage,
+      `لا توجد أصناف مطابقة لعبارة: ${normalizedSearchValue}`,
+      'warning'
+    );
+    return;
+  }
+
+  setMessage(
+    elements.listMessage,
+    `تم العثور على ${resultsCount} صنفاً مطابقاً لعبارة: ${normalizedSearchValue}`,
+    'success'
+  );
+}
 function renderAdminItems(editItemId = null) {
   const elements = getAdminElements();
 
@@ -619,9 +642,10 @@ function renderAdminItems(editItemId = null) {
     }
   });
 
-  elements.count.textContent = `عدد النتائج: ${sortedItems.length}`;
+   elements.count.textContent = `عدد النتائج: ${sortedItems.length}`;
   elements.empty.hidden = sortedItems.length !== 0;
 
+  updateAdminSearchMessage(searchValue, sortedItems.length);
   updateAdminSortHeaders();
 }
 
